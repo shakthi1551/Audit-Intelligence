@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AuditIQ API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: engagements
+    description: Audit engagements
+  - name: journal-entries
+    description: Journal entry management
+  - name: risk-scores
+    description: Risk scoring
+  - name: ai-explanations
+    description: AI-generated explanations
+  - name: reports
+    description: Report generation
+  - name: dashboard
+    description: Dashboard analytics
+  - name: audit-logs
+    description: Audit trail
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +40,508 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # Auth
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # Engagements
+  /engagements:
+    get:
+      operationId: listEngagements
+      tags: [engagements]
+      summary: List engagements
+      responses:
+        "200":
+          description: List of engagements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Engagement"
+    post:
+      operationId: createEngagement
+      tags: [engagements]
+      summary: Create engagement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEngagementBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Engagement"
+
+  /engagements/{id}:
+    get:
+      operationId: getEngagement
+      tags: [engagements]
+      summary: Get engagement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Engagement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Engagement"
+    delete:
+      operationId: deleteEngagement
+      tags: [engagements]
+      summary: Delete engagement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # Journal Entries (Upload)
+  /engagements/{id}/upload:
+    post:
+      operationId: uploadJournalEntries
+      tags: [journal-entries]
+      summary: Upload CSV or XLSX file with journal entries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "202":
+          description: Upload accepted, processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+
+  /engagements/{id}/entries:
+    get:
+      operationId: listJournalEntries
+      tags: [journal-entries]
+      summary: List journal entries for an engagement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: riskLevel
+          in: query
+          schema:
+            type: string
+            enum: [HIGH, MEDIUM, LOW]
+        - name: user
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Journal entries with risk scores
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntryListResponse"
+
+  /entries/{entryId}:
+    get:
+      operationId: getJournalEntry
+      tags: [journal-entries]
+      summary: Get single journal entry with full details
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Entry detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntryDetail"
+
+  /entries/{entryId}/override:
+    post:
+      operationId: overrideRiskScore
+      tags: [risk-scores]
+      summary: Auditor override of risk score
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OverrideBody"
+      responses:
+        "200":
+          description: Override applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskScore"
+
+  /entries/{entryId}/explanation:
+    get:
+      operationId: getAiExplanation
+      tags: [ai-explanations]
+      summary: Get AI explanation for an entry
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: AI explanation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiExplanation"
+    post:
+      operationId: generateAiExplanation
+      tags: [ai-explanations]
+      summary: Generate/regenerate AI explanation
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: AI explanation generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiExplanation"
+
+  # Dashboard Analytics
+  /engagements/{id}/dashboard:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary stats for an engagement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /engagements/{id}/heatmap/users:
+    get:
+      operationId: getUserHeatmap
+      tags: [dashboard]
+      summary: Get risk heatmap by user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User heatmap data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserHeatmapRow"
+
+  /engagements/{id}/heatmap/time:
+    get:
+      operationId: getTimeHeatmap
+      tags: [dashboard]
+      summary: Get risk heatmap by posting time
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Time heatmap data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TimeHeatmapRow"
+
+  /engagements/{id}/risk-distribution:
+    get:
+      operationId: getRiskDistribution
+      tags: [dashboard]
+      summary: Get risk distribution breakdown
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Risk distribution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskDistribution"
+
+  /engagements/{id}/benford:
+    get:
+      operationId: getBenfordAnalysis
+      tags: [dashboard]
+      summary: Get Benford's Law analysis for an engagement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Benford analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenfordAnalysis"
+
+  /engagements/{id}/duplicates:
+    get:
+      operationId: getDuplicates
+      tags: [dashboard]
+      summary: Get potential duplicate entries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Duplicate groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DuplicateGroup"
+
+  # Reports
+  /engagements/{id}/report/pdf:
+    get:
+      operationId: downloadPdfReport
+      tags: [reports]
+      summary: Download PDF audit report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /engagements/{id}/report/excel:
+    get:
+      operationId: downloadExcelReport
+      tags: [reports]
+      summary: Download Excel report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Excel file
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  # Audit Logs
+  /audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [audit-logs]
+      summary: List audit trail events
+      parameters:
+        - name: engagementId
+          in: query
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+
+  # Global dashboard (across all engagements for the user)
+  /dashboard/overview:
+    get:
+      operationId: getOverallDashboard
+      tags: [dashboard]
+      summary: Get overall portfolio risk overview
+      responses:
+        "200":
+          description: Overall dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OverallDashboard"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +549,493 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+      required: [error]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    # Auth
+    RegisterBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+        role:
+          type: string
+          enum: [ASSOCIATE, SENIOR, MANAGER]
+          default: ASSOCIATE
+        firmName:
+          type: string
+      required: [email, password, name]
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required: [token, user]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [ASSOCIATE, SENIOR, MANAGER]
+        firmName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, name, role]
+
+    # Engagements
+    Engagement:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        clientName:
+          type: string
+        period:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETED, ARCHIVED]
+        totalEntries:
+          type: integer
+        highRiskCount:
+          type: integer
+        mediumRiskCount:
+          type: integer
+        lowRiskCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, clientName, period, status, createdAt, updatedAt]
+
+    CreateEngagementBody:
+      type: object
+      properties:
+        name:
+          type: string
+        clientName:
+          type: string
+        period:
+          type: string
+        description:
+          type: string
+      required: [name, clientName, period]
+
+    # Upload
+    UploadResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        engagementId:
+          type: integer
+        totalRows:
+          type: integer
+        processedRows:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+      required: [message, engagementId, totalRows, processedRows]
+
+    # Journal Entry
+    JournalEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        engagementId:
+          type: integer
+        entryDate:
+          type: string
+        postedBy:
+          type: string
+        description:
+          type: string
+        debitAccount:
+          type: string
+        creditAccount:
+          type: string
+        amount:
+          type: number
+        postingTime:
+          type: string
+        referenceNumber:
+          type: string
+        riskScore:
+          $ref: "#/components/schemas/RiskScore"
+      required: [id, engagementId, entryDate, postedBy, description, amount]
+
+    JournalEntryDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        engagementId:
+          type: integer
+        entryDate:
+          type: string
+        postedBy:
+          type: string
+        description:
+          type: string
+        debitAccount:
+          type: string
+        creditAccount:
+          type: string
+        amount:
+          type: number
+        postingTime:
+          type: string
+        referenceNumber:
+          type: string
+        rawData:
+          type: object
+        riskScore:
+          $ref: "#/components/schemas/RiskScore"
+        aiExplanation:
+          $ref: "#/components/schemas/AiExplanation"
+      required: [id, engagementId, entryDate, postedBy, description, amount]
+
+    JournalEntryListResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/JournalEntry"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalPages:
+          type: integer
+      required: [entries, total, page, pageSize, totalPages]
+
+    # Risk Score
+    RiskScore:
+      type: object
+      properties:
+        id:
+          type: integer
+        entryId:
+          type: integer
+        totalScore:
+          type: number
+        riskLevel:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        postingTimeScore:
+          type: number
+        amountScore:
+          type: number
+        userConcentrationScore:
+          type: number
+        keywordScore:
+          type: number
+        frequencyScore:
+          type: number
+        confidenceScore:
+          type: number
+        overridden:
+          type: boolean
+        overrideReason:
+          type: string
+        overriddenBy:
+          type: string
+        overriddenAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, entryId, totalScore, riskLevel, confidenceScore, overridden]
+
+    OverrideBody:
+      type: object
+      properties:
+        riskLevel:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        reason:
+          type: string
+      required: [riskLevel, reason]
+
+    # AI Explanations
+    AiExplanation:
+      type: object
+      properties:
+        id:
+          type: integer
+        entryId:
+          type: integer
+        explanation:
+          type: string
+        triggers:
+          type: array
+          items:
+            type: string
+        isaReference:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        modelUsed:
+          type: string
+      required: [id, entryId, explanation, triggers, generatedAt]
+
+    # Dashboard
+    DashboardSummary:
+      type: object
+      properties:
+        engagementId:
+          type: integer
+        totalEntries:
+          type: integer
+        highRiskCount:
+          type: integer
+        mediumRiskCount:
+          type: integer
+        lowRiskCount:
+          type: integer
+        highRiskPct:
+          type: number
+        mediumRiskPct:
+          type: number
+        lowRiskPct:
+          type: number
+        avgRiskScore:
+          type: number
+        topRiskyUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserRiskSummary"
+        recentHighRisk:
+          type: array
+          items:
+            $ref: "#/components/schemas/JournalEntry"
+        afterHoursCount:
+          type: integer
+        weekendCount:
+          type: integer
+        aiExplanationCount:
+          type: integer
+        duplicateSuspects:
+          type: integer
+      required: [engagementId, totalEntries, highRiskCount, mediumRiskCount, lowRiskCount, avgRiskScore]
+
+    UserRiskSummary:
+      type: object
+      properties:
+        user:
+          type: string
+        entryCount:
+          type: integer
+        highRiskCount:
+          type: integer
+        avgScore:
+          type: number
+        totalAmount:
+          type: number
+      required: [user, entryCount, highRiskCount, avgScore, totalAmount]
+
+    UserHeatmapRow:
+      type: object
+      properties:
+        user:
+          type: string
+        totalEntries:
+          type: integer
+        highRiskEntries:
+          type: integer
+        avgRiskScore:
+          type: number
+        totalAmount:
+          type: number
+        riskConcentration:
+          type: number
+      required: [user, totalEntries, highRiskEntries, avgRiskScore, totalAmount, riskConcentration]
+
+    TimeHeatmapRow:
+      type: object
+      properties:
+        hour:
+          type: integer
+        dayOfWeek:
+          type: integer
+        entryCount:
+          type: integer
+        avgRiskScore:
+          type: number
+        label:
+          type: string
+      required: [hour, dayOfWeek, entryCount, avgRiskScore]
+
+    RiskDistribution:
+      type: object
+      properties:
+        high:
+          type: integer
+        medium:
+          type: integer
+        low:
+          type: integer
+        scoreBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoreRange"
+      required: [high, medium, low, scoreBreakdown]
+
+    ScoreRange:
+      type: object
+      properties:
+        range:
+          type: string
+        count:
+          type: integer
+      required: [range, count]
+
+    BenfordAnalysis:
+      type: object
+      properties:
+        engagementId:
+          type: integer
+        digits:
+          type: array
+          items:
+            $ref: "#/components/schemas/BenfordDigit"
+        deviationScore:
+          type: number
+        riskAssessment:
+          type: string
+        summary:
+          type: string
+      required: [engagementId, digits, deviationScore, riskAssessment, summary]
+
+    BenfordDigit:
+      type: object
+      properties:
+        digit:
+          type: integer
+        expected:
+          type: number
+        actual:
+          type: number
+        count:
+          type: integer
+        deviation:
+          type: number
+      required: [digit, expected, actual, count, deviation]
+
+    DuplicateGroup:
+      type: object
+      properties:
+        groupId:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/JournalEntry"
+        matchReason:
+          type: string
+        riskScore:
+          type: number
+      required: [groupId, entries, matchReason, riskScore]
+
+    OverallDashboard:
+      type: object
+      properties:
+        totalEngagements:
+          type: integer
+        activeEngagements:
+          type: integer
+        totalEntriesProcessed:
+          type: integer
+        totalHighRisk:
+          type: integer
+        totalMediumRisk:
+          type: integer
+        totalLowRisk:
+          type: integer
+        recentEngagements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Engagement"
+        overallRiskTrend:
+          type: string
+      required: [totalEngagements, activeEngagements, totalEntriesProcessed, totalHighRisk, totalMediumRisk, totalLowRisk]
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        engagementId:
+          type: integer
+        userId:
+          type: integer
+        action:
+          type: string
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        details:
+          type: string
+        ipAddress:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, action, entityType, createdAt]

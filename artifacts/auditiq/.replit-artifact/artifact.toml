@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "AuditIQ — AI-Powered Journal Entry Risk Scorer"
+version = "1.0.0"
+id = "artifacts/auditiq"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18868
+
+[services.development]
+run = "pnpm --filter @workspace/auditiq run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/auditiq", "run", "build" ]
+publicDir = "artifacts/auditiq/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18868"
+BASE_PATH = "/"
