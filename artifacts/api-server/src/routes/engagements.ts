@@ -17,9 +17,9 @@ router.get("/", async (req: AuthenticatedRequest, res) => {
     const result = await Promise.all(engagements.map(async (eng) => {
       const counts = await db.select({
         total: sql<number>`count(*)`,
-        high: sql<number>`sum(case when rs.risk_level = 'HIGH' then 1 else 0 end)`,
-        medium: sql<number>`sum(case when rs.risk_level = 'MEDIUM' then 1 else 0 end)`,
-        low: sql<number>`sum(case when rs.risk_level = 'LOW' then 1 else 0 end)`,
+        high: sql<number>`sum(case when ${riskScoresTable.riskLevel} = 'HIGH' then 1 else 0 end)`,
+        medium: sql<number>`sum(case when ${riskScoresTable.riskLevel} = 'MEDIUM' then 1 else 0 end)`,
+        low: sql<number>`sum(case when ${riskScoresTable.riskLevel} = 'LOW' then 1 else 0 end)`,
       }).from(journalEntriesTable)
         .leftJoin(riskScoresTable, eq(riskScoresTable.entryId, journalEntriesTable.id))
         .where(eq(journalEntriesTable.engagementId, eng.id));
@@ -76,9 +76,9 @@ router.get("/:id", async (req: AuthenticatedRequest, res) => {
 
     const counts = await db.select({
       total: sql<number>`count(*)`,
-      high: sql<number>`sum(case when rs.risk_level = 'HIGH' then 1 else 0 end)`,
-      medium: sql<number>`sum(case when rs.risk_level = 'MEDIUM' then 1 else 0 end)`,
-      low: sql<number>`sum(case when rs.risk_level = 'LOW' then 1 else 0 end)`,
+      high: sql<number>`sum(case when ${riskScoresTable.riskLevel} = 'HIGH' then 1 else 0 end)`,
+      medium: sql<number>`sum(case when ${riskScoresTable.riskLevel} = 'MEDIUM' then 1 else 0 end)`,
+      low: sql<number>`sum(case when ${riskScoresTable.riskLevel} = 'LOW' then 1 else 0 end)`,
     }).from(journalEntriesTable)
       .leftJoin(riskScoresTable, eq(riskScoresTable.entryId, journalEntriesTable.id))
       .where(eq(journalEntriesTable.engagementId, id));
