@@ -1,18 +1,63 @@
-import { useDownloadPdfReport, useDownloadExcelReport } from "@workspace/api-client-react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, FileSpreadsheet, Download, Settings, Lock } from "lucide-react";
+import { FileText, FileSpreadsheet, Download, Settings, Lock, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ReportsTab({ engagementId }: { engagementId: number }) {
-  const handleDownloadPdf = () => {
-    window.open(`/api/engagements/${engagementId}/reports/pdf`, "_blank");
+  const { toast } = useToast();
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [xlsxLoading, setXlsxLoading] = useState(false);
+
+  const extFromContentType = (ct: string | null): string => {
+    if (!ct) return "bin";
+    if (ct.includes("pdf")) return "pdf";
+    if (ct.includes("html")) return "html";
+    if (ct.includes("spreadsheetml") || ct.includes("xlsx")) return "xlsx";
+    if (ct.includes("csv")) return "csv";
+    return "bin";
   };
 
-  const handleDownloadExcel = () => {
-    window.open(`/api/engagements/${engagementId}/reports/excel`, "_blank");
+  const downloadReport = async (
+    kind: "pdf" | "excel",
+    setLoading: (v: boolean) => void,
+  ) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("auditiq_token");
+      const res = await fetch(
+        `/api/engagements/${engagementId}/report/${kind}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const ext = extFromContentType(res.headers.get("content-type"));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `engagement-${engagementId}-report.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast({
+        title: "Download failed",
+        description: err?.message || "Could not download report",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleDownloadPdf = () => downloadReport("pdf", setPdfLoading);
+  const handleDownloadExcel = () => downloadReport("excel", setXlsxLoading);
 
   return (
     <div className="space-y-6">
@@ -37,9 +82,13 @@ export default function ReportsTab({ engagementId }: { engagementId: number }) {
             </ul>
           </CardContent>
           <CardFooter>
-            <Button onClick={handleDownloadPdf} className="w-full">
-              <Download className="h-4 w-4 mr-2" />
-              Download PDF
+            <Button onClick={handleDownloadPdf} className="w-full" disabled={pdfLoading}>
+              {pdfLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {pdfLoading ? "Generating..." : "Download PDF"}
             </Button>
           </CardFooter>
         </Card>
@@ -64,9 +113,13 @@ export default function ReportsTab({ engagementId }: { engagementId: number }) {
             </ul>
           </CardContent>
           <CardFooter>
-            <Button onClick={handleDownloadExcel} variant="outline" className="w-full">
-              <Download className="h-4 w-4 mr-2" />
-              Export XLSX
+            <Button onClick={handleDownloadExcel} variant="outline" className="w-full" disabled={xlsxLoading}>
+              {xlsxLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {xlsxLoading ? "Generating..." : "Export XLSX"}
             </Button>
           </CardFooter>
         </Card>
