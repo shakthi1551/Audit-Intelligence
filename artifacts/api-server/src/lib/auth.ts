@@ -25,7 +25,11 @@ function base64UrlDecode(str: string): string {
 export function signJwt(payload: Omit<JwtPayload, "iat" | "exp">): string {
   const header = base64UrlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const body = base64UrlEncode(
-    JSON.stringify({ ...payload, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7 })
+    JSON.stringify({
+      ...payload,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
+    }),
   );
   const signature = createHmac("sha256", JWT_SECRET)
     .update(`${header}.${body}`)
@@ -54,7 +58,10 @@ export async function hashPassword(password: string): Promise<string> {
   return `${salt}:${derivedKey.toString("hex")}`;
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+export async function verifyPassword(
+  password: string,
+  hash: string,
+): Promise<boolean> {
   const [salt, keyHex] = hash.split(":");
   const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
   const keyBuffer = Buffer.from(keyHex, "hex");
@@ -67,7 +74,11 @@ export interface AuthenticatedRequest extends Request {
   userEmail?: string;
 }
 
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export function requireAuth(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     res.status(401).json({ error: "Unauthorized" });
@@ -79,7 +90,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
-  req.userId = payload.userId;
+  req.userId = Number(payload.userId);
   req.userRole = payload.role;
   req.userEmail = payload.email;
   next();
