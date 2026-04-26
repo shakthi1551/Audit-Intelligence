@@ -52,8 +52,12 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/engagements/new" component={() => <ProtectedRoute component={NewEngagement} />} />
-      <Route path="/engagements/:id/upload" component={(params) => <ProtectedRoute component={() => <UploadJournalEntries params={params} />} />} />
-      <Route path="/engagements/:id" component={(params) => <ProtectedRoute component={() => <EngagementDetail params={params} />} />} />
+      <Route path="/engagements/:id/upload">
+        {(params) => <ProtectedRoute component={() => <UploadJournalEntries params={params} />} />}
+      </Route>
+      <Route path="/engagements/:id">
+        {(params) => <ProtectedRoute component={() => <EngagementDetail params={params} />} />}
+      </Route>
       <Route path="/engagements" component={() => <ProtectedRoute component={EngagementsList} />} />
       <Route path="/admin" component={() => <ProtectedRoute component={AdminPanel} roles={["MANAGER"]} />} />
       <Route path="/" component={() => <Redirect to="/dashboard" />} />
