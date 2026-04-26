@@ -50,13 +50,13 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      <Route path="/" component={() => <Redirect to="/dashboard" />} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/engagements/new" component={() => <ProtectedRoute component={NewEngagement} />} />
-      <Route path="/engagements/:id/upload" component={() => <ProtectedRoute component={UploadJournalEntries} />} />
-      <Route path="/engagements/:id" component={() => <ProtectedRoute component={EngagementDetail} />} />
+      <Route path="/engagements/:id/upload" component={(params) => <ProtectedRoute component={() => <UploadJournalEntries params={params} />} />} />
+      <Route path="/engagements/:id" component={(params) => <ProtectedRoute component={() => <EngagementDetail params={params} />} />} />
       <Route path="/engagements" component={() => <ProtectedRoute component={EngagementsList} />} />
       <Route path="/admin" component={() => <ProtectedRoute component={AdminPanel} roles={["MANAGER"]} />} />
+      <Route path="/" component={() => <Redirect to="/dashboard" />} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -67,7 +67,7 @@ function App() {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "") }>
             <AuthProvider>
               <Router />
             </AuthProvider>
