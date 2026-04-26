@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useListJournalEntries, getListJournalEntriesQueryKey, useGetAiExplanation, useGenerateAiExplanation, useOverrideRiskScore } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
