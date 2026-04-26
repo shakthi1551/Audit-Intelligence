@@ -14,7 +14,6 @@ router.get("/", async (req: AuthenticatedRequest, res) => {
     const engagements = await db.select().from(engagementsTable)
       .where(eq(engagementsTable.userId, req.userId!));
 
-    // Add risk counts
     const result = await Promise.all(engagements.map(async (eng) => {
       const counts = await db.select({
         total: sql<number>`count(*)`,
