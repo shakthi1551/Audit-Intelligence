@@ -15,7 +15,7 @@ router.use(requireAuth);
 // Upload CSV/XLSX
 router.post("/:id/upload", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const myParam = req.query.someParam as string;
 
     // Verify engagement ownership
     const [eng] = await db.select().from(engagementsTable)
@@ -92,7 +92,7 @@ router.post("/:id/upload", async (req: AuthenticatedRequest, res) => {
 // List entries with filters
 router.get("/:id/entries", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const myParam = req.query.someParam as string;
     const page = parseInt(req.query.page as string ?? "1", 10);
     const pageSize = parseInt(req.query.pageSize as string ?? "50", 10);
     const riskLevel = req.query.riskLevel as string | undefined;
