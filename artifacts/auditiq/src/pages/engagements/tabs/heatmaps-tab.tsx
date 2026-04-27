@@ -1,7 +1,13 @@
 import { useGetUserHeatmap, getGetUserHeatmapQueryKey, useGetTimeHeatmap, getGetTimeHeatmapQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+
+function riskColor(avgScore: number) {
+  if (avgScore >= 60) return "#ef4444";
+  if (avgScore >= 30) return "#f59e0b";
+  return "#10b981";
+}
 
 export default function HeatmapsTab({ engagementId }: { engagementId: number }) {
   const { data: userHeatmap, isLoading: isUserLoading } = useGetUserHeatmap(engagementId, {
@@ -41,15 +47,29 @@ export default function HeatmapsTab({ engagementId }: { engagementId: number }) 
                 data={userHeatmap?.slice(0, 10) || []}
                 layout="vertical"
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                barCategoryGap="20%"
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
-                <YAxis dataKey="user" type="category" width={100} tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  cursor={{fill: 'var(--muted)'}}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)' }}
+                <XAxis type="number" allowDecimals={false} />
+                <YAxis dataKey="user" type="category" width={120} tick={{ fontSize: 12 }} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff' }}
+                  formatter={(value: any, name: any, item: any) => {
+                    if (name === "Total Entries") {
+                      const avg = item?.payload?.avgRiskScore ?? 0;
+                      return [`${value} (avg score ${avg.toFixed(1)})`, name];
+                    }
+                    return [value, name];
+                  }}
                 />
-                <Bar dataKey="highRiskEntries" name="High Risk Entries" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                <Legend />
+                <Bar dataKey="totalEntries" name="Total Entries" radius={[0, 4, 4, 0]}>
+                  {(userHeatmap?.slice(0, 10) || []).map((row, i) => (
+                    <Cell key={i} fill={riskColor(row.avgRiskScore)} />
+                  ))}
+                </Bar>
+                <Bar dataKey="highRiskEntries" name="High Risk Entries" fill="#7f1d1d" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
