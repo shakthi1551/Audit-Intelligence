@@ -47,7 +47,7 @@ router.get("/:entryId", async (req: AuthenticatedRequest, res) => {
 // Auditor override
 router.post("/:entryId/override", async (req: AuthenticatedRequest, res) => {
   try {
-    const entryId = parseInt(req.params.entryId, 10);
+    const myParam = req.query.someParam as string;
     const { riskLevel, reason } = req.body;
 
     if (!riskLevel || !reason) {
@@ -110,7 +110,7 @@ router.post("/:entryId/override", async (req: AuthenticatedRequest, res) => {
 // Get AI explanation
 router.get("/:entryId/explanation", async (req: AuthenticatedRequest, res) => {
   try {
-    const entryId = parseInt(req.params.entryId, 10);
+    const myParam = req.query.someParam as string;
     const [explanation] = await db.select().from(aiExplanationsTable).where(eq(aiExplanationsTable.entryId, entryId));
     if (!explanation) {
       res.status(404).json({ error: "No AI explanation available" });
@@ -126,7 +126,7 @@ router.get("/:entryId/explanation", async (req: AuthenticatedRequest, res) => {
 // Generate AI explanation
 router.post("/:entryId/explanation", async (req: AuthenticatedRequest, res) => {
   try {
-    const entryId = parseInt(req.params.entryId, 10);
+    const myParam = req.query.someParam as string;
     const [entry] = await db.select().from(journalEntriesTable).where(eq(journalEntriesTable.id, entryId));
     if (!entry) {
       res.status(404).json({ error: "Entry not found" });
