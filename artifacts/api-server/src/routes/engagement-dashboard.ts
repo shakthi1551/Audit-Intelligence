@@ -5,6 +5,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
 import type { AuthenticatedRequest } from "../lib/auth.js";
 import { computeBenford } from "../lib/risk-engine.js";
+import { computeBeneishIndices } from "../lib/beneish-engine.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -331,6 +332,36 @@ router.get("/:id/duplicates", async (req: AuthenticatedRequest, res) => {
     res.json(duplicateGroups);
   } catch (err) {
     req.log.error({ err }, "Duplicates error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/engagements/:id/beneish
+router.get("/:id/beneish", async (req: AuthenticatedRequest, res) => {
+  try {
+    const engId = parseInt(req.params.id, 10);
+    const [eng] = await db.select().from(engagementsTable)
+      .where(and(eq(engagementsTable.id, engId), eq(engagementsTable.userId, req.userId!)));
+    if (!eng) {
+      res.status(404).json({ error: "Engagement not found" });
+      return;
+    }
+
+    const entries = await db.select().from(journalEntriesTable)
+      .where(eq(journalEntriesTable.engagementId, engId));
+
+    const mapped = entries.map(e => ({
+      id: e.id,
+      debitAccount: e.debitAccount,
+      creditAccount: e.creditAccount ?? null,
+      description: e.description,
+      amount: parseFloat(e.amount),
+    }));
+
+    const result = computeBeneishIndices(mapped);
+    res.json({ engagementId: engId, ...result });
+  } catch (err) {
+    req.log.error({ err }, "Beneish analysis error");
     res.status(500).json({ error: "Internal server error" });
   }
 });

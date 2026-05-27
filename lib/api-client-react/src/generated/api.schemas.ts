@@ -128,6 +128,36 @@ export interface RiskScore {
   createdAt?: string;
 }
 
+export type BeneishTagVariable =
+  (typeof BeneishTagVariable)[keyof typeof BeneishTagVariable];
+
+export const BeneishTagVariable = {
+  DSRI: "DSRI",
+  GMI: "GMI",
+  AQI: "AQI",
+  SGI: "SGI",
+  DEPI: "DEPI",
+  SGAI: "SGAI",
+  LVGI: "LVGI",
+  TATA: "TATA",
+} as const;
+
+export type BeneishTagSeverity =
+  (typeof BeneishTagSeverity)[keyof typeof BeneishTagSeverity];
+
+export const BeneishTagSeverity = {
+  HIGH: "HIGH",
+  MEDIUM: "MEDIUM",
+  LOW: "LOW",
+} as const;
+
+export interface BeneishTag {
+  variable: BeneishTagVariable;
+  label: string;
+  description: string;
+  severity: BeneishTagSeverity;
+}
+
 export interface JournalEntry {
   id: number;
   engagementId: number;
@@ -140,6 +170,7 @@ export interface JournalEntry {
   postingTime?: string;
   referenceNumber?: string;
   riskScore?: RiskScore;
+  beneishTags?: BeneishTag[];
 }
 
 export type JournalEntryDetailRawData = { [key: string]: unknown };
@@ -291,6 +322,58 @@ export interface AuditLog {
   details?: string;
   ipAddress?: string;
   createdAt: string;
+}
+
+export type BeneishIndexVariable =
+  (typeof BeneishIndexVariable)[keyof typeof BeneishIndexVariable];
+
+export const BeneishIndexVariable = {
+  DSRI: "DSRI",
+  GMI: "GMI",
+  AQI: "AQI",
+  SGI: "SGI",
+  DEPI: "DEPI",
+  SGAI: "SGAI",
+  LVGI: "LVGI",
+  TATA: "TATA",
+} as const;
+
+export interface BeneishIndex {
+  variable: BeneishIndexVariable;
+  label: string;
+  value: number;
+  threshold: number;
+  flagged: boolean;
+  description: string;
+  interpretation: string;
+}
+
+export type BeneishAnalysisVerdict =
+  (typeof BeneishAnalysisVerdict)[keyof typeof BeneishAnalysisVerdict];
+
+export const BeneishAnalysisVerdict = {
+  MANIPULATOR: "MANIPULATOR",
+  "NON-MANIPULATOR": "NON-MANIPULATOR",
+  UNCERTAIN: "UNCERTAIN",
+} as const;
+
+export type BeneishAnalysisVerdictSeverity =
+  (typeof BeneishAnalysisVerdictSeverity)[keyof typeof BeneishAnalysisVerdictSeverity];
+
+export const BeneishAnalysisVerdictSeverity = {
+  HIGH: "HIGH",
+  MEDIUM: "MEDIUM",
+  LOW: "LOW",
+} as const;
+
+export interface BeneishAnalysis {
+  engagementId: number;
+  mScore: number;
+  verdict: BeneishAnalysisVerdict;
+  verdictSeverity: BeneishAnalysisVerdictSeverity;
+  flaggedCount: number;
+  summary: string;
+  indices: BeneishIndex[];
 }
 
 export type ListJournalEntriesParams = {

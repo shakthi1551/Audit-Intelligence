@@ -440,6 +440,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/BenfordAnalysis"
 
+  /engagements/{id}/beneish:
+    get:
+      operationId: getBeneishAnalysis
+      tags: [dashboard]
+      summary: Get Beneish M-Score analysis for an engagement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Beneish M-Score analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeneishAnalysis"
+
   /engagements/{id}/duplicates:
     get:
       operationId: getDuplicates
@@ -713,6 +732,10 @@ components:
           type: string
         riskScore:
           $ref: "#/components/schemas/RiskScore"
+        beneishTags:
+          type: array
+          items:
+            $ref: "#/components/schemas/BeneishTag"
       required: [id, engagementId, entryDate, postedBy, description, amount]
 
     JournalEntryDetail:
@@ -1039,3 +1062,61 @@ components:
           type: string
           format: date-time
       required: [id, action, entityType, createdAt]
+
+    BeneishTag:
+      type: object
+      properties:
+        variable:
+          type: string
+          enum: [DSRI, GMI, AQI, SGI, DEPI, SGAI, LVGI, TATA]
+        label:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+      required: [variable, label, description, severity]
+
+    BeneishIndex:
+      type: object
+      properties:
+        variable:
+          type: string
+          enum: [DSRI, GMI, AQI, SGI, DEPI, SGAI, LVGI, TATA]
+        label:
+          type: string
+        value:
+          type: number
+        threshold:
+          type: number
+        flagged:
+          type: boolean
+        description:
+          type: string
+        interpretation:
+          type: string
+      required: [variable, label, value, threshold, flagged, description, interpretation]
+
+    BeneishAnalysis:
+      type: object
+      properties:
+        engagementId:
+          type: integer
+        mScore:
+          type: number
+        verdict:
+          type: string
+          enum: [MANIPULATOR, NON-MANIPULATOR, UNCERTAIN]
+        verdictSeverity:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        flaggedCount:
+          type: integer
+        summary:
+          type: string
+        indices:
+          type: array
+          items:
+            $ref: "#/components/schemas/BeneishIndex"
+      required: [engagementId, mScore, verdict, verdictSeverity, flaggedCount, summary, indices]

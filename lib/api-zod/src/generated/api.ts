@@ -188,6 +188,25 @@ export const ListJournalEntriesResponse = zod.object({
           createdAt: zod.coerce.date().optional(),
         })
         .optional(),
+      beneishTags: zod
+        .array(
+          zod.object({
+            variable: zod.enum([
+              "DSRI",
+              "GMI",
+              "AQI",
+              "SGI",
+              "DEPI",
+              "SGAI",
+              "LVGI",
+              "TATA",
+            ]),
+            label: zod.string(),
+            description: zod.string(),
+            severity: zod.enum(["HIGH", "MEDIUM", "LOW"]),
+          }),
+        )
+        .optional(),
     }),
   ),
   total: zod.number(),
@@ -371,6 +390,25 @@ export const GetDashboardSummaryResponse = zod.object({
             createdAt: zod.coerce.date().optional(),
           })
           .optional(),
+        beneishTags: zod
+          .array(
+            zod.object({
+              variable: zod.enum([
+                "DSRI",
+                "GMI",
+                "AQI",
+                "SGI",
+                "DEPI",
+                "SGAI",
+                "LVGI",
+                "TATA",
+              ]),
+              label: zod.string(),
+              description: zod.string(),
+              severity: zod.enum(["HIGH", "MEDIUM", "LOW"]),
+            }),
+          )
+          .optional(),
       }),
     )
     .optional(),
@@ -456,6 +494,42 @@ export const GetBenfordAnalysisResponse = zod.object({
 });
 
 /**
+ * @summary Get Beneish M-Score analysis for an engagement
+ */
+export const GetBeneishAnalysisParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetBeneishAnalysisResponse = zod.object({
+  engagementId: zod.number(),
+  mScore: zod.number(),
+  verdict: zod.enum(["MANIPULATOR", "NON-MANIPULATOR", "UNCERTAIN"]),
+  verdictSeverity: zod.enum(["HIGH", "MEDIUM", "LOW"]),
+  flaggedCount: zod.number(),
+  summary: zod.string(),
+  indices: zod.array(
+    zod.object({
+      variable: zod.enum([
+        "DSRI",
+        "GMI",
+        "AQI",
+        "SGI",
+        "DEPI",
+        "SGAI",
+        "LVGI",
+        "TATA",
+      ]),
+      label: zod.string(),
+      value: zod.number(),
+      threshold: zod.number(),
+      flagged: zod.boolean(),
+      description: zod.string(),
+      interpretation: zod.string(),
+    }),
+  ),
+});
+
+/**
  * @summary Get potential duplicate entries
  */
 export const GetDuplicatesParams = zod.object({
@@ -494,6 +568,25 @@ export const GetDuplicatesResponseItem = zod.object({
           overriddenAt: zod.coerce.date().optional(),
           createdAt: zod.coerce.date().optional(),
         })
+        .optional(),
+      beneishTags: zod
+        .array(
+          zod.object({
+            variable: zod.enum([
+              "DSRI",
+              "GMI",
+              "AQI",
+              "SGI",
+              "DEPI",
+              "SGAI",
+              "LVGI",
+              "TATA",
+            ]),
+            label: zod.string(),
+            description: zod.string(),
+            severity: zod.enum(["HIGH", "MEDIUM", "LOW"]),
+          }),
+        )
         .optional(),
     }),
   ),
