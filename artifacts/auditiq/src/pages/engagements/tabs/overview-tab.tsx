@@ -5,7 +5,7 @@ import { AlertTriangle, AlertCircle, CheckCircle2, FileText, Database, TrendingU
 import { Badge } from "@/components/ui/badge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
-import type { BeneishAnalysis } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { BeneishAnalysis, BeneishIndex } from "@workspace/api-client-react";
 
 function MScoreGauge({ mScore }: { mScore: number }) {
   const min = -4, max = 1;
@@ -44,7 +44,7 @@ function BeneishWidget({ data }: { data: BeneishAnalysis }) {
     ? "bg-amber-500 text-white"
     : "bg-green-500 text-white";
 
-  const radarData = data.indices.map(idx => ({
+  const radarData = data.indices.map((idx: BeneishIndex) => ({
     subject: idx.variable,
     value: Math.min(parseFloat((idx.value / idx.threshold * 100).toFixed(1)), 200),
     threshold: 100,
@@ -78,7 +78,7 @@ function BeneishWidget({ data }: { data: BeneishAnalysis }) {
           <div>
             <h4 className="text-sm font-semibold mb-3">Index Values vs Thresholds</h4>
             <div className="space-y-2">
-              {data.indices.map(idx => (
+              {data.indices.map((idx: BeneishIndex) => (
                 <div key={idx.variable} className="space-y-0.5">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1.5">

@@ -93,12 +93,12 @@ export default function AdminPanel() {
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">Loading logs...</TableCell>
                   </TableRow>
-                ) : !logsData?.data || logsData.data.length === 0 ? (
+                ) : !logsData || logsData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No audit logs found</TableCell>
                   </TableRow>
                 ) : (
-                  logsData.data.map((log: any) => (
+                  logsData.map((log) => (
                     <TableRow key={log.id}>
                       <TableCell className="whitespace-nowrap font-mono text-xs">
                         {format(new Date(log.createdAt), 'yyyy-MM-dd HH:mm:ss')}
@@ -123,7 +123,7 @@ export default function AdminPanel() {
             </Table>
           </div>
           
-          {logsData && logsData.totalPages > 1 && (
+          {logsData && logsData.length === 20 && (
             <div className="flex items-center justify-between p-4 border-t mt-4">
               <Button 
                 variant="outline" 
@@ -133,14 +133,12 @@ export default function AdminPanel() {
               >
                 Previous
               </Button>
-              <div className="text-sm text-muted-foreground">
-                Page {page} of {logsData.totalPages}
-              </div>
+              <div className="text-sm text-muted-foreground">Page {page}</div>
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setPage(p => Math.min(logsData.totalPages, p + 1))}
-                disabled={page === logsData.totalPages || isLoading}
+                onClick={() => setPage(p => p + 1)}
+                disabled={isLoading}
               >
                 Next
               </Button>

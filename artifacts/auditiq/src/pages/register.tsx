@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { RegisterBodyRole } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { RegisterBodyRole } from "@workspace/api-client-react";
 
 export default function Register() {
   const [email, setEmail] = useState("");
