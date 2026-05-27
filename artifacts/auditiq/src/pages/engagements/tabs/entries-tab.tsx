@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { ChevronDown, ChevronRight, Bot, ShieldAlert, Check, X, Shield, History } from "lucide-react";
+import { ChevronDown, ChevronRight, Bot, ShieldAlert, Shield, History, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { JournalEntry, ListJournalEntriesRiskLevel, OverrideBodyRiskLevel } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { JournalEntry, ListJournalEntriesRiskLevel, OverrideBodyRiskLevel, BeneishTag } from "@workspace/api-client-react/src/generated/api.schemas";
 import { Progress } from "@/components/ui/progress";
 
 function RiskBadge({ level }: { level?: string }) {
@@ -21,6 +21,23 @@ function RiskBadge({ level }: { level?: string }) {
   if (level === "MEDIUM") return <Badge className="bg-amber-500 hover:bg-amber-500 text-white">MEDIUM</Badge>;
   if (level === "LOW") return <Badge className="bg-green-500 hover:bg-green-500 text-white">LOW</Badge>;
   return <Badge variant="outline">UNKNOWN</Badge>;
+}
+
+function BeneishTagBadge({ tag }: { tag: BeneishTag }) {
+  const colors = {
+    HIGH: "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300",
+    MEDIUM: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300",
+    LOW: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300",
+  };
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${colors[tag.severity]} cursor-help whitespace-nowrap`}
+      title={tag.description}
+    >
+      <AlertTriangle className="h-2.5 w-2.5 flex-shrink-0" />
+      {tag.variable}
+    </span>
+  );
 }
 
 function FormatCurrency({ value }: { value: number }) {
@@ -302,10 +319,19 @@ export default function EntriesTab({ engagementId }: { engagementId: number }) {
                         <FormatCurrency value={entry.amount} />
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <RiskBadge level={entry.riskScore?.riskLevel} />
-                          {entry.riskScore?.overridden && (
-                            <History className="h-3 w-3 text-muted-foreground" title="Manually overridden" />
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <RiskBadge level={entry.riskScore?.riskLevel} />
+                            {entry.riskScore?.overridden && (
+                              <History className="h-3 w-3 text-muted-foreground" title="Manually overridden" />
+                            )}
+                          </div>
+                          {(entry as any).beneishTags && (entry as any).beneishTags.length > 0 && (
+                            <div className="flex flex-wrap gap-0.5 mt-0.5">
+                              {(entry as any).beneishTags.map((tag: BeneishTag, i: number) => (
+                                <BeneishTagBadge key={i} tag={tag} />
+                              ))}
+                            </div>
                           )}
                         </div>
                       </TableCell>

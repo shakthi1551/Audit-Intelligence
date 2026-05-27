@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { computeBeneishTags } from "../lib/beneish-engine.js";
 import { db } from "@workspace/db";
 import { engagementsTable, journalEntriesTable, riskScoresTable, aiExplanationsTable } from "@workspace/db";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
@@ -124,6 +125,17 @@ router.get("/:id/entries", async (req: AuthenticatedRequest, res) => {
 
     const scoreMap = new Map(scores.map(s => [s.entryId, s]));
 
+    // Pre-compute Beneish tags using all entries in the engagement for percentile baselines
+    const allEngEntries = await db.select().from(journalEntriesTable)
+      .where(eq(journalEntriesTable.engagementId, engId));
+    const allMapped = allEngEntries.map(e => ({
+      id: e.id,
+      debitAccount: e.debitAccount,
+      creditAccount: e.creditAccount ?? null,
+      description: e.description,
+      amount: parseFloat(e.amount),
+    }));
+
     // Filter by risk level if requested
     let enrichedEntries = entries.map(e => ({
       ...e,
@@ -138,6 +150,10 @@ router.get("/:id/entries", async (req: AuthenticatedRequest, res) => {
         frequencyScore: parseFloat(scoreMap.get(e.id)!.frequencyScore),
         confidenceScore: parseFloat(scoreMap.get(e.id)!.confidenceScore),
       } : null,
+      beneishTags: computeBeneishTags(
+        { id: e.id, debitAccount: e.debitAccount, creditAccount: e.creditAccount ?? null, description: e.description, amount: parseFloat(e.amount) },
+        allMapped,
+      ),
     }));
 
     if (riskLevel) {

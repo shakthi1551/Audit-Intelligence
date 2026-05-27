@@ -20,6 +20,7 @@ import type {
   AiExplanation,
   AuditLog,
   AuthResponse,
+  BeneishAnalysis,
   BenfordAnalysis,
   CreateEngagementBody,
   DashboardSummary,
@@ -1756,6 +1757,93 @@ export function useGetBenfordAnalysis<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetBenfordAnalysisQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Beneish M-Score analysis for an engagement
+ */
+export const getGetBeneishAnalysisUrl = (id: number) => {
+  return `/api/engagements/${id}/beneish`;
+};
+
+export const getBeneishAnalysis = async (
+  id: number,
+  options?: RequestInit,
+): Promise<BeneishAnalysis> => {
+  return customFetch<BeneishAnalysis>(getGetBeneishAnalysisUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBeneishAnalysisQueryKey = (id: number) => {
+  return [`/api/engagements/${id}/beneish`] as const;
+};
+
+export const getGetBeneishAnalysisQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBeneishAnalysis>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBeneishAnalysis>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBeneishAnalysisQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBeneishAnalysis>>
+  > = ({ signal }) => getBeneishAnalysis(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBeneishAnalysis>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBeneishAnalysisQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBeneishAnalysis>>
+>;
+export type GetBeneishAnalysisQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get Beneish M-Score analysis for an engagement
+ */
+
+export function useGetBeneishAnalysis<
+  TData = Awaited<ReturnType<typeof getBeneishAnalysis>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBeneishAnalysis>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBeneishAnalysisQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
