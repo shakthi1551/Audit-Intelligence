@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { ListJournalEntriesRiskLevel, OverrideBodyRiskLevel, BeneishTag } from "@workspace/api-client-react";
 import { Progress } from "@/components/ui/progress";
 import { TextHighlight, FinNegCount } from "@/components/text-highlight";
+import { RiskNarrativeBox } from "@/components/risk-narrative";
 import { FileText } from "lucide-react";
 
 function RiskBadge({ level }: { level?: string }) {
@@ -46,7 +47,18 @@ function FormatCurrency({ value }: { value: number }) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 }
 
-function ExplanationPanel({ entryId, score, description }: { entryId: number, score: any, description: string }) {
+function ExplanationPanel({
+  entryId, score, description, entryDate, postingTime, postedBy, amount, debitAccount,
+}: {
+  entryId: number;
+  score: any;
+  description: string;
+  entryDate: string;
+  postingTime?: string;
+  postedBy: string;
+  amount: number;
+  debitAccount?: string;
+}) {
   const { data: explanation, isLoading } = useGetAiExplanation(entryId);
   const generateMutation = useGenerateAiExplanation();
   const queryClient = useQueryClient();
@@ -61,6 +73,16 @@ function ExplanationPanel({ entryId, score, description }: { entryId: number, sc
 
   return (
     <div className="p-4 bg-muted/30 border-t space-y-4">
+      <RiskNarrativeBox
+        entryDate={entryDate}
+        postingTime={postingTime}
+        postedBy={postedBy}
+        amount={amount}
+        description={description}
+        debitAccount={debitAccount}
+        score={score}
+      />
+
       <div>
         <h4 className="text-sm font-semibold mb-3 flex items-center">
           <FileText className="h-4 w-4 mr-2" />
@@ -361,7 +383,16 @@ export default function EntriesTab({ engagementId }: { engagementId: number }) {
                     {expandedId === entry.id && (
                       <TableRow className="bg-muted/50 hover:bg-muted/50 border-t-0">
                         <TableCell colSpan={8} className="p-0">
-                          <ExplanationPanel entryId={entry.id} score={entry.riskScore} description={entry.description} />
+                          <ExplanationPanel
+                            entryId={entry.id}
+                            score={entry.riskScore}
+                            description={entry.description}
+                            entryDate={entry.entryDate}
+                            postingTime={entry.postingTime}
+                            postedBy={entry.postedBy}
+                            amount={entry.amount}
+                            debitAccount={entry.debitAccount}
+                          />
                         </TableCell>
                       </TableRow>
                     )}
