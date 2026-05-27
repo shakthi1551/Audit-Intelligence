@@ -13,8 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { JournalEntry, ListJournalEntriesRiskLevel, OverrideBodyRiskLevel, BeneishTag } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { ListJournalEntriesRiskLevel, OverrideBodyRiskLevel, BeneishTag } from "@workspace/api-client-react";
 import { Progress } from "@/components/ui/progress";
+import { TextHighlight, FinNegCount } from "@/components/text-highlight";
+import { FileText } from "lucide-react";
 
 function RiskBadge({ level }: { level?: string }) {
   if (level === "HIGH") return <Badge className="bg-destructive hover:bg-destructive text-destructive-foreground">HIGH</Badge>;
@@ -24,7 +26,7 @@ function RiskBadge({ level }: { level?: string }) {
 }
 
 function BeneishTagBadge({ tag }: { tag: BeneishTag }) {
-  const colors = {
+  const colors: Record<string, string> = {
     HIGH: "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300",
     MEDIUM: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300",
     LOW: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300",
@@ -44,13 +46,13 @@ function FormatCurrency({ value }: { value: number }) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 }
 
-function ExplanationPanel({ entryId, score }: { entryId: number, score: any }) {
+function ExplanationPanel({ entryId, score, description }: { entryId: number, score: any, description: string }) {
   const { data: explanation, isLoading } = useGetAiExplanation(entryId);
   const generateMutation = useGenerateAiExplanation();
   const queryClient = useQueryClient();
 
   const handleGenerate = () => {
-    generateMutation.mutate({ data: { entryId } }, {
+    generateMutation.mutate({ entryId }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/journal-entries', entryId, 'explanation'] });
       }
@@ -59,6 +61,14 @@ function ExplanationPanel({ entryId, score }: { entryId: number, score: any }) {
 
   return (
     <div className="p-4 bg-muted/30 border-t space-y-4">
+      <div>
+        <h4 className="text-sm font-semibold mb-3 flex items-center">
+          <FileText className="h-4 w-4 mr-2" />
+          Description Analysis
+        </h4>
+        <TextHighlight text={description} />
+      </div>
+
       <div className="grid grid-cols-2 gap-6">
         <div>
           <h4 className="text-sm font-semibold mb-3 flex items-center">
@@ -173,7 +183,7 @@ function OverrideDialog({ entryId, currentRisk, engagementId }: { entryId: numbe
       return;
     }
     
-    overrideMutation.mutate({ data: { entryId, riskLevel: level, reason } }, {
+    overrideMutation.mutate({ entryId, data: { riskLevel: level, reason } }, {
       onSuccess: () => {
         toast({ title: "Risk score overridden" });
         setOpen(false);
@@ -240,7 +250,7 @@ export default function EntriesTab({ engagementId }: { engagementId: number }) {
   const queryParams: any = { page, pageSize: 20 };
   if (riskFilter !== "ALL") queryParams.riskLevel = riskFilter;
 
-  const { data, isLoading } = useListJournalEntries(engagementId, {
+  const { data, isLoading } = useListJournalEntries(engagementId, queryParams, {
     query: { enabled: !!engagementId, queryKey: getListJournalEntriesQueryKey(engagementId, queryParams) }
   });
 
@@ -311,8 +321,9 @@ export default function EntriesTab({ engagementId }: { engagementId: number }) {
                         <div className="font-mono text-xs">{entry.debitAccount}</div>
                         {entry.creditAccount && <div className="font-mono text-xs text-muted-foreground mt-1">{entry.creditAccount}</div>}
                       </TableCell>
-                      <TableCell className="max-w-[250px] truncate" title={entry.description}>
-                        {entry.description}
+                      <TableCell className="max-w-[250px]" title={entry.description}>
+                        <span className="truncate block">{entry.description}</span>
+                        <FinNegCount description={entry.description} />
                       </TableCell>
                       <TableCell>{entry.postedBy}</TableCell>
                       <TableCell className="text-right font-mono font-medium">
@@ -323,7 +334,9 @@ export default function EntriesTab({ engagementId }: { engagementId: number }) {
                           <div className="flex items-center gap-1.5">
                             <RiskBadge level={entry.riskScore?.riskLevel} />
                             {entry.riskScore?.overridden && (
-                              <History className="h-3 w-3 text-muted-foreground" title="Manually overridden" />
+                              <span title="Manually overridden">
+                                <History className="h-3 w-3 text-muted-foreground" />
+                              </span>
                             )}
                           </div>
                           {(entry as any).beneishTags && (entry as any).beneishTags.length > 0 && (
@@ -348,7 +361,7 @@ export default function EntriesTab({ engagementId }: { engagementId: number }) {
                     {expandedId === entry.id && (
                       <TableRow className="bg-muted/50 hover:bg-muted/50 border-t-0">
                         <TableCell colSpan={8} className="p-0">
-                          <ExplanationPanel entryId={entry.id} score={entry.riskScore} />
+                          <ExplanationPanel entryId={entry.id} score={entry.riskScore} description={entry.description} />
                         </TableCell>
                       </TableRow>
                     )}
