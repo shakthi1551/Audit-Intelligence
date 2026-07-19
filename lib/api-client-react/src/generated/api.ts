@@ -23,7 +23,10 @@ import type {
   BeneishAnalysis,
   BenfordAnalysis,
   CreateEngagementBody,
+  CreateWebhookKeyBody,
   DashboardSummary,
+  DriveFilesResponse,
+  DriveImportBody,
   DuplicateGroup,
   Engagement,
   ErrorResponse,
@@ -34,6 +37,7 @@ import type {
   ListJournalEntriesParams,
   LoginBody,
   MessageResponse,
+  NewWebhookKeyResponse,
   OverallDashboard,
   OverrideBody,
   RegisterBody,
@@ -43,6 +47,9 @@ import type {
   UploadResponse,
   User,
   UserHeatmapRow,
+  WebhookKey,
+  WebhookTriggerBody,
+  WebhookTriggerResponse,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -2112,6 +2119,499 @@ export function useDownloadExcelReport<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List CSV/XLSX files from connected Google Drive
+ */
+export const getListDriveFilesUrl = () => {
+  return `/api/drive/files`;
+};
+
+export const listDriveFiles = async (
+  options?: RequestInit,
+): Promise<DriveFilesResponse> => {
+  return customFetch<DriveFilesResponse>(getListDriveFilesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDriveFilesQueryKey = () => {
+  return [`/api/drive/files`] as const;
+};
+
+export const getListDriveFilesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDriveFiles>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDriveFiles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDriveFilesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDriveFiles>>> = ({
+    signal,
+  }) => listDriveFiles({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDriveFiles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDriveFilesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDriveFiles>>
+>;
+export type ListDriveFilesQueryError = ErrorType<void>;
+
+/**
+ * @summary List CSV/XLSX files from connected Google Drive
+ */
+
+export function useListDriveFiles<
+  TData = Awaited<ReturnType<typeof listDriveFiles>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDriveFiles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDriveFilesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Download a Drive file and process as journal entries
+ */
+export const getImportFromDriveUrl = (id: number) => {
+  return `/api/engagements/${id}/import-drive`;
+};
+
+export const importFromDrive = async (
+  id: number,
+  driveImportBody: DriveImportBody,
+  options?: RequestInit,
+): Promise<UploadResponse> => {
+  return customFetch<UploadResponse>(getImportFromDriveUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(driveImportBody),
+  });
+};
+
+export const getImportFromDriveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importFromDrive>>,
+    TError,
+    { id: number; data: BodyType<DriveImportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importFromDrive>>,
+  TError,
+  { id: number; data: BodyType<DriveImportBody> },
+  TContext
+> => {
+  const mutationKey = ["importFromDrive"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importFromDrive>>,
+    { id: number; data: BodyType<DriveImportBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return importFromDrive(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportFromDriveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importFromDrive>>
+>;
+export type ImportFromDriveMutationBody = BodyType<DriveImportBody>;
+export type ImportFromDriveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Download a Drive file and process as journal entries
+ */
+export const useImportFromDrive = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importFromDrive>>,
+    TError,
+    { id: number; data: BodyType<DriveImportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importFromDrive>>,
+  TError,
+  { id: number; data: BodyType<DriveImportBody> },
+  TContext
+> => {
+  return useMutation(getImportFromDriveMutationOptions(options));
+};
+
+/**
+ * @summary Trigger an audit pipeline action (for MAKE/Zapier automation)
+ */
+export const getTriggerWebhookUrl = () => {
+  return `/api/webhooks/trigger`;
+};
+
+export const triggerWebhook = async (
+  webhookTriggerBody: WebhookTriggerBody,
+  options?: RequestInit,
+): Promise<WebhookTriggerResponse> => {
+  return customFetch<WebhookTriggerResponse>(getTriggerWebhookUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(webhookTriggerBody),
+  });
+};
+
+export const getTriggerWebhookMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerWebhook>>,
+    TError,
+    { data: BodyType<WebhookTriggerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof triggerWebhook>>,
+  TError,
+  { data: BodyType<WebhookTriggerBody> },
+  TContext
+> => {
+  const mutationKey = ["triggerWebhook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof triggerWebhook>>,
+    { data: BodyType<WebhookTriggerBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return triggerWebhook(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TriggerWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof triggerWebhook>>
+>;
+export type TriggerWebhookMutationBody = BodyType<WebhookTriggerBody>;
+export type TriggerWebhookMutationError = ErrorType<void>;
+
+/**
+ * @summary Trigger an audit pipeline action (for MAKE/Zapier automation)
+ */
+export const useTriggerWebhook = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof triggerWebhook>>,
+    TError,
+    { data: BodyType<WebhookTriggerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof triggerWebhook>>,
+  TError,
+  { data: BodyType<WebhookTriggerBody> },
+  TContext
+> => {
+  return useMutation(getTriggerWebhookMutationOptions(options));
+};
+
+/**
+ * @summary List webhook API keys
+ */
+export const getListWebhookKeysUrl = () => {
+  return `/api/webhooks/keys`;
+};
+
+export const listWebhookKeys = async (
+  options?: RequestInit,
+): Promise<WebhookKey[]> => {
+  return customFetch<WebhookKey[]>(getListWebhookKeysUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListWebhookKeysQueryKey = () => {
+  return [`/api/webhooks/keys`] as const;
+};
+
+export const getListWebhookKeysQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWebhookKeys>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listWebhookKeys>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListWebhookKeysQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listWebhookKeys>>> = ({
+    signal,
+  }) => listWebhookKeys({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWebhookKeys>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListWebhookKeysQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWebhookKeys>>
+>;
+export type ListWebhookKeysQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List webhook API keys
+ */
+
+export function useListWebhookKeys<
+  TData = Awaited<ReturnType<typeof listWebhookKeys>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listWebhookKeys>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWebhookKeysQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new webhook API key
+ */
+export const getCreateWebhookKeyUrl = () => {
+  return `/api/webhooks/keys`;
+};
+
+export const createWebhookKey = async (
+  createWebhookKeyBody: CreateWebhookKeyBody,
+  options?: RequestInit,
+): Promise<NewWebhookKeyResponse> => {
+  return customFetch<NewWebhookKeyResponse>(getCreateWebhookKeyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createWebhookKeyBody),
+  });
+};
+
+export const getCreateWebhookKeyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWebhookKey>>,
+    TError,
+    { data: BodyType<CreateWebhookKeyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createWebhookKey>>,
+  TError,
+  { data: BodyType<CreateWebhookKeyBody> },
+  TContext
+> => {
+  const mutationKey = ["createWebhookKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createWebhookKey>>,
+    { data: BodyType<CreateWebhookKeyBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createWebhookKey(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateWebhookKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createWebhookKey>>
+>;
+export type CreateWebhookKeyMutationBody = BodyType<CreateWebhookKeyBody>;
+export type CreateWebhookKeyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new webhook API key
+ */
+export const useCreateWebhookKey = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWebhookKey>>,
+    TError,
+    { data: BodyType<CreateWebhookKeyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createWebhookKey>>,
+  TError,
+  { data: BodyType<CreateWebhookKeyBody> },
+  TContext
+> => {
+  return useMutation(getCreateWebhookKeyMutationOptions(options));
+};
+
+/**
+ * @summary Revoke a webhook API key
+ */
+export const getDeleteWebhookKeyUrl = (id: number) => {
+  return `/api/webhooks/keys/${id}`;
+};
+
+export const deleteWebhookKey = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteWebhookKeyUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteWebhookKeyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWebhookKey>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWebhookKey>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteWebhookKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWebhookKey>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteWebhookKey(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWebhookKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWebhookKey>>
+>;
+
+export type DeleteWebhookKeyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Revoke a webhook API key
+ */
+export const useDeleteWebhookKey = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWebhookKey>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWebhookKey>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteWebhookKeyMutationOptions(options));
+};
 
 /**
  * @summary List audit trail events

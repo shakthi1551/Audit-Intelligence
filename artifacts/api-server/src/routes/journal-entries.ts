@@ -16,7 +16,7 @@ router.use(requireAuth);
 // Upload CSV/XLSX
 router.post("/:id/upload", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
 
     // Verify engagement ownership
     const [eng] = await db.select().from(engagementsTable)
@@ -93,7 +93,7 @@ router.post("/:id/upload", async (req: AuthenticatedRequest, res) => {
 // List entries with filters
 router.get("/:id/entries", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const page = parseInt(req.query.page as string ?? "1", 10);
     const pageSize = parseInt(req.query.pageSize as string ?? "50", 10);
     const riskLevel = req.query.riskLevel as string | undefined;
@@ -130,7 +130,7 @@ router.get("/:id/entries", async (req: AuthenticatedRequest, res) => {
       .where(eq(journalEntriesTable.engagementId, engId));
     const allMapped = allEngEntries.map(e => ({
       id: e.id,
-      debitAccount: e.debitAccount,
+      debitAccount: e.debitAccount ?? "",
       creditAccount: e.creditAccount ?? null,
       description: e.description,
       amount: parseFloat(e.amount),
@@ -151,7 +151,7 @@ router.get("/:id/entries", async (req: AuthenticatedRequest, res) => {
         confidenceScore: parseFloat(scoreMap.get(e.id)!.confidenceScore),
       } : null,
       beneishTags: computeBeneishTags(
-        { id: e.id, debitAccount: e.debitAccount, creditAccount: e.creditAccount ?? null, description: e.description, amount: parseFloat(e.amount) },
+        { id: e.id, debitAccount: e.debitAccount ?? "", creditAccount: e.creditAccount ?? null, description: e.description, amount: parseFloat(e.amount) },
         allMapped,
       ),
     }));

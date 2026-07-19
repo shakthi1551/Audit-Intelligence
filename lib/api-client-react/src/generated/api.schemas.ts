@@ -121,6 +121,10 @@ export interface RiskScore {
   keywordScore?: number;
   frequencyScore?: number;
   confidenceScore: number;
+  /** Isolation Forest anomaly score 0-100 (>=65 flagged) */
+  mlAnomalyScore?: number;
+  /** True if Isolation Forest flagged this entry as anomalous */
+  mlAnomalyFlag?: boolean;
   overridden: boolean;
   overrideReason?: string;
   overriddenBy?: string;
@@ -218,9 +222,39 @@ export const OverrideBodyRiskLevel = {
   LOW: "LOW",
 } as const;
 
+/**
+ * Structured HITL feedback category for model improvement
+ */
+export type OverrideBodyFeedbackCategory =
+  (typeof OverrideBodyFeedbackCategory)[keyof typeof OverrideBodyFeedbackCategory];
+
+export const OverrideBodyFeedbackCategory = {
+  CLERICAL_ERROR: "CLERICAL_ERROR",
+  POLICY_EXCEPTION: "POLICY_EXCEPTION",
+  BUSINESS_JUSTIFICATION: "BUSINESS_JUSTIFICATION",
+  SYSTEM_ERROR: "SYSTEM_ERROR",
+  OTHER: "OTHER",
+} as const;
+
+/**
+ * Auditor's confidence in the override decision
+ */
+export type OverrideBodyConfidenceLevel =
+  (typeof OverrideBodyConfidenceLevel)[keyof typeof OverrideBodyConfidenceLevel];
+
+export const OverrideBodyConfidenceLevel = {
+  HIGH: "HIGH",
+  MEDIUM: "MEDIUM",
+  LOW: "LOW",
+} as const;
+
 export interface OverrideBody {
   riskLevel: OverrideBodyRiskLevel;
   reason: string;
+  /** Structured HITL feedback category for model improvement */
+  feedbackCategory?: OverrideBodyFeedbackCategory;
+  /** Auditor's confidence in the override decision */
+  confidenceLevel?: OverrideBodyConfidenceLevel;
 }
 
 export interface UserRiskSummary {
@@ -312,6 +346,11 @@ export interface OverallDashboard {
   overallRiskTrend?: string;
 }
 
+/**
+ * Structured HITL metadata (feedbackCategory, confidenceLevel, auditorName, etc.)
+ */
+export type AuditLogMetadata = { [key: string]: unknown };
+
 export interface AuditLog {
   id: number;
   engagementId?: number;
@@ -321,7 +360,73 @@ export interface AuditLog {
   entityId?: number;
   details?: string;
   ipAddress?: string;
+  /** Previous risk level before override */
+  previousValue?: string;
+  /** Structured HITL metadata (feedbackCategory, confidenceLevel, auditorName, etc.) */
+  metadata?: AuditLogMetadata;
   createdAt: string;
+}
+
+export interface DriveFile {
+  id: string;
+  name: string;
+  size?: string;
+  modifiedTime?: string;
+  mimeType: string;
+}
+
+export interface DriveFilesResponse {
+  files: DriveFile[];
+}
+
+export interface DriveImportBody {
+  fileId: string;
+  fileName: string;
+}
+
+export type WebhookTriggerBodyType =
+  (typeof WebhookTriggerBodyType)[keyof typeof WebhookTriggerBodyType];
+
+export const WebhookTriggerBodyType = {
+  "score-engagement": "score-engagement",
+  "get-results": "get-results",
+} as const;
+
+export interface WebhookTriggerBody {
+  type: WebhookTriggerBodyType;
+  engagementId: number;
+}
+
+export type WebhookTriggerResponseEntriesItem = { [key: string]: unknown };
+
+export interface WebhookTriggerResponse {
+  ok: boolean;
+  engagementId: number;
+  entriesScored?: number;
+  triggeredAt?: string;
+  entries?: WebhookTriggerResponseEntriesItem[];
+}
+
+export interface WebhookKey {
+  id: number;
+  name: string;
+  keyPrefix: string;
+  active: boolean;
+  lastUsedAt?: string;
+  createdAt: string;
+}
+
+export interface CreateWebhookKeyBody {
+  name: string;
+  createdBy: number;
+}
+
+export interface NewWebhookKeyResponse {
+  /** Full API key — shown once only */
+  key: string;
+  prefix: string;
+  name: string;
+  message: string;
 }
 
 export type BeneishIndexVariable =

@@ -13,7 +13,7 @@ router.use(requireAuth);
 // GET /api/engagements/:id/dashboard — dashboard summary
 router.get("/:id/dashboard", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const [eng] = await db.select().from(engagementsTable)
       .where(and(eq(engagementsTable.id, engId), eq(engagementsTable.userId, req.userId!)));
     if (!eng) {
@@ -130,7 +130,7 @@ router.get("/:id/dashboard", async (req: AuthenticatedRequest, res) => {
 // GET /api/engagements/:id/heatmap/users
 router.get("/:id/heatmap/users", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const entries = await db.select().from(journalEntriesTable)
       .where(eq(journalEntriesTable.engagementId, engId));
 
@@ -172,7 +172,7 @@ router.get("/:id/heatmap/users", async (req: AuthenticatedRequest, res) => {
 // GET /api/engagements/:id/heatmap/time
 router.get("/:id/heatmap/time", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const entries = await db.select().from(journalEntriesTable)
       .where(eq(journalEntriesTable.engagementId, engId));
 
@@ -228,7 +228,7 @@ router.get("/:id/heatmap/time", async (req: AuthenticatedRequest, res) => {
 // GET /api/engagements/:id/risk-distribution
 router.get("/:id/risk-distribution", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const entries = await db.select().from(journalEntriesTable)
       .where(eq(journalEntriesTable.engagementId, engId));
 
@@ -267,7 +267,7 @@ router.get("/:id/risk-distribution", async (req: AuthenticatedRequest, res) => {
 // GET /api/engagements/:id/benford
 router.get("/:id/benford", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const entries = await db.select().from(journalEntriesTable)
       .where(eq(journalEntriesTable.engagementId, engId));
 
@@ -295,7 +295,7 @@ router.get("/:id/benford", async (req: AuthenticatedRequest, res) => {
 // GET /api/engagements/:id/duplicates
 router.get("/:id/duplicates", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const entries = await db.select().from(journalEntriesTable)
       .where(eq(journalEntriesTable.engagementId, engId));
 
@@ -339,7 +339,7 @@ router.get("/:id/duplicates", async (req: AuthenticatedRequest, res) => {
 // GET /api/engagements/:id/beneish
 router.get("/:id/beneish", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const [eng] = await db.select().from(engagementsTable)
       .where(and(eq(engagementsTable.id, engId), eq(engagementsTable.userId, req.userId!)));
     if (!eng) {
@@ -352,7 +352,7 @@ router.get("/:id/beneish", async (req: AuthenticatedRequest, res) => {
 
     const mapped = entries.map(e => ({
       id: e.id,
-      debitAccount: e.debitAccount,
+      debitAccount: e.debitAccount ?? "",
       creditAccount: e.creditAccount ?? null,
       description: e.description,
       amount: parseFloat(e.amount),

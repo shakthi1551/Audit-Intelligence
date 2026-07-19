@@ -7,17 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { ChevronDown, ChevronRight, Bot, ShieldAlert, Shield, History, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, Bot, ShieldAlert, Shield, History, AlertTriangle, FileText } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { ListJournalEntriesRiskLevel, OverrideBodyRiskLevel, BeneishTag } from "@workspace/api-client-react";
+import type { ListJournalEntriesRiskLevel, OverrideBodyRiskLevel, OverrideBodyFeedbackCategory, OverrideBodyConfidenceLevel, BeneishTag } from "@workspace/api-client-react";
 import { Progress } from "@/components/ui/progress";
 import { TextHighlight, FinNegCount } from "@/components/text-highlight";
 import { RiskNarrativeBox } from "@/components/risk-narrative";
-import { FileText } from "lucide-react";
+import { ShapChart } from "@/components/shap-chart";
 
 function RiskBadge({ level }: { level?: string }) {
   if (level === "HIGH") return <Badge className="bg-destructive hover:bg-destructive text-destructive-foreground">HIGH</Badge>;
@@ -95,50 +96,19 @@ function ExplanationPanel({
         <div>
           <h4 className="text-sm font-semibold mb-3 flex items-center">
             <ShieldAlert className="h-4 w-4 mr-2" />
-            Risk Score Breakdown
+            XAI Feature Importance
           </h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Posting Time (25%)</span>
-              <span className="font-mono">{score?.postingTimeScore || 0}/100</span>
+          {score ? (
+            <ShapChart score={score} />
+          ) : (
+            <p className="text-sm text-muted-foreground">No score data available.</p>
+          )}
+          {score && (
+            <div className="flex justify-between items-center mt-3 pt-2 border-t text-xs text-muted-foreground">
+              <span>Rule-based total</span>
+              <span className="font-mono font-semibold text-foreground">{score?.totalScore || 0}/100</span>
             </div>
-            <Progress value={score?.postingTimeScore || 0} className="h-1.5" />
-            
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-muted-foreground">Amount Anomaly (25%)</span>
-              <span className="font-mono">{score?.amountScore || 0}/100</span>
-            </div>
-            <Progress value={score?.amountScore || 0} className="h-1.5" />
-            
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-muted-foreground">User Concentration (20%)</span>
-              <span className="font-mono">{score?.userConcentrationScore || 0}/100</span>
-            </div>
-            <Progress value={score?.userConcentrationScore || 0} className="h-1.5" />
-            
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-muted-foreground">Keywords (20%)</span>
-              <span className="font-mono">{score?.keywordScore || 0}/100</span>
-            </div>
-            <Progress value={score?.keywordScore || 0} className="h-1.5" />
-            
-            <div className="flex justify-between items-center mt-2">
-              <span className="text-muted-foreground">Frequency (10%)</span>
-              <span className="font-mono">{score?.frequencyScore || 0}/100</span>
-            </div>
-            <Progress value={score?.frequencyScore || 0} className="h-1.5" />
-
-            <div className="flex justify-between items-center mt-4 pt-2 border-t font-semibold">
-              <span>Total Score</span>
-              <span className="font-mono">{score?.totalScore || 0}/100</span>
-            </div>
-            
-            <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
-              <span>Model Confidence</span>
-              <span className="font-mono">{score?.confidenceScore || 0}%</span>
-            </div>
-            <Progress value={score?.confidenceScore || 0} className="h-1" />
-          </div>
+          )}
         </div>
 
         <div>
@@ -190,11 +160,21 @@ function ExplanationPanel({
   );
 }
 
+const FEEDBACK_CATEGORIES: { value: OverrideBodyFeedbackCategory; label: string; desc: string }[] = [
+  { value: "CLERICAL_ERROR",         label: "Clerical Error",           desc: "System mis-scored due to data entry issue" },
+  { value: "POLICY_EXCEPTION",       label: "Policy Exception",         desc: "Entry is permitted under approved policy" },
+  { value: "BUSINESS_JUSTIFICATION", label: "Business Justification",   desc: "Legitimate business rationale confirmed" },
+  { value: "SYSTEM_ERROR",           label: "System / Model Error",     desc: "Risk engine produced incorrect result" },
+  { value: "OTHER",                  label: "Other",                    desc: "Rationale explained in notes below" },
+];
+
 function OverrideDialog({ entryId, currentRisk, engagementId }: { entryId: number, currentRisk?: string, engagementId: number }) {
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<OverrideBodyRiskLevel>((currentRisk as OverrideBodyRiskLevel) || "LOW");
   const [reason, setReason] = useState("");
-  
+  const [feedbackCategory, setFeedbackCategory] = useState<OverrideBodyFeedbackCategory>("OTHER");
+  const [confidenceLevel, setConfidenceLevel] = useState<OverrideBodyConfidenceLevel>("MEDIUM");
+
   const overrideMutation = useOverrideRiskScore();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -204,14 +184,17 @@ function OverrideDialog({ entryId, currentRisk, engagementId }: { entryId: numbe
       toast({ title: "Reason required", variant: "destructive" });
       return;
     }
-    
-    overrideMutation.mutate({ entryId, data: { riskLevel: level, reason } }, {
-      onSuccess: () => {
-        toast({ title: "Risk score overridden" });
-        setOpen(false);
-        queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey(engagementId) });
-      }
-    });
+    overrideMutation.mutate(
+      { entryId, data: { riskLevel: level, reason, feedbackCategory, confidenceLevel } },
+      {
+        onSuccess: () => {
+          toast({ title: "Override recorded", description: "Logged to audit trail with full rationale." });
+          setOpen(false);
+          setReason("");
+          queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey(engagementId) });
+        },
+      },
+    );
   };
 
   return (
@@ -222,14 +205,19 @@ function OverrideDialog({ entryId, currentRisk, engagementId }: { entryId: numbe
           Override
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Auditor Override</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Human-in-the-Loop Override
+          </DialogTitle>
           <DialogDescription>
-            Manually adjust the risk level for this journal entry. This action will be logged.
+            Override the AI risk classification. All fields are logged permanently to the audit trail (ISA 230).
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+
+        <div className="space-y-5 py-2">
+          {/* New risk level */}
           <div className="space-y-2">
             <Label>New Risk Level</Label>
             <Select value={level} onValueChange={(v) => setLevel(v as OverrideBodyRiskLevel)}>
@@ -243,20 +231,65 @@ function OverrideDialog({ entryId, currentRisk, engagementId }: { entryId: numbe
               </SelectContent>
             </Select>
           </div>
+
+          {/* Feedback category */}
           <div className="space-y-2">
-            <Label>Override Reason</Label>
-            <Textarea 
-              placeholder="Provide a detailed explanation for this override..." 
+            <Label>Override Category <span className="text-muted-foreground font-normal">(HITL feedback)</span></Label>
+            <div className="space-y-1.5">
+              {FEEDBACK_CATEGORIES.map(cat => (
+                <button
+                  key={cat.value}
+                  type="button"
+                  onClick={() => setFeedbackCategory(cat.value)}
+                  className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg border text-left text-sm transition-colors ${
+                    feedbackCategory === cat.value
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/30"
+                  }`}
+                >
+                  <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${feedbackCategory === cat.value ? "border-primary bg-primary" : "border-muted-foreground"}`} />
+                  <div>
+                    <span className="font-medium">{cat.label}</span>
+                    <span className="text-muted-foreground ml-2 text-xs">{cat.desc}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Confidence level */}
+          <div className="space-y-2">
+            <Label>Override Confidence</Label>
+            <RadioGroup
+              value={confidenceLevel}
+              onValueChange={(v) => setConfidenceLevel(v as OverrideBodyConfidenceLevel)}
+              className="flex gap-4"
+            >
+              {(["HIGH", "MEDIUM", "LOW"] as OverrideBodyConfidenceLevel[]).map(lvl => (
+                <div key={lvl} className="flex items-center space-x-2">
+                  <RadioGroupItem value={lvl} id={`conf-${lvl}`} />
+                  <Label htmlFor={`conf-${lvl}`} className="font-normal cursor-pointer">{lvl}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          {/* Rationale */}
+          <div className="space-y-2">
+            <Label>Auditor Rationale <span className="text-destructive">*</span></Label>
+            <Textarea
+              placeholder="Provide a detailed justification for this override..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              rows={4}
+              rows={3}
             />
           </div>
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleOverride} disabled={overrideMutation.isPending}>
-            Confirm Override
+          <Button onClick={handleOverride} disabled={overrideMutation.isPending || !reason.trim()}>
+            {overrideMutation.isPending ? "Saving…" : "Confirm Override"}
           </Button>
         </DialogFooter>
       </DialogContent>

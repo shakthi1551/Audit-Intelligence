@@ -66,7 +66,7 @@ router.post("/", async (req: AuthenticatedRequest, res) => {
 
 router.get("/:id", async (req: AuthenticatedRequest, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     const [eng] = await db.select().from(engagementsTable)
       .where(and(eq(engagementsTable.id, id), eq(engagementsTable.userId, req.userId!)));
     if (!eng) {
@@ -99,7 +99,7 @@ router.get("/:id", async (req: AuthenticatedRequest, res) => {
 
 router.delete("/:id", async (req: AuthenticatedRequest, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     const [eng] = await db.select().from(engagementsTable)
       .where(and(eq(engagementsTable.id, id), eq(engagementsTable.userId, req.userId!)));
     if (!eng) {

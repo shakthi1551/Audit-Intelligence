@@ -26,6 +26,10 @@ tags:
     description: Dashboard analytics
   - name: audit-logs
     description: Audit trail
+  - name: drive
+    description: Google Drive cloud ingestion
+  - name: webhooks
+    description: Automation webhook endpoints (MAKE, Zapier, etc.)
 
 paths:
   /healthz:
@@ -521,6 +525,133 @@ paths:
                 type: string
                 format: binary
 
+  # Google Drive
+  /drive/files:
+    get:
+      operationId: listDriveFiles
+      tags: [drive]
+      summary: List CSV/XLSX files from connected Google Drive
+      parameters:
+        - name: X-Drive-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of Drive files
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveFilesResponse"
+        "400":
+          description: Drive not connected
+
+  /engagements/{id}/import-drive:
+    post:
+      operationId: importFromDrive
+      tags: [drive]
+      summary: Download a Drive file and process as journal entries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: X-Drive-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveImportBody"
+      responses:
+        "202":
+          description: Import accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+
+  # Webhooks
+  /webhooks/trigger:
+    post:
+      operationId: triggerWebhook
+      tags: [webhooks]
+      summary: Trigger an audit pipeline action (for MAKE/Zapier automation)
+      parameters:
+        - name: X-Webhook-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookTriggerBody"
+      responses:
+        "200":
+          description: Trigger result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookTriggerResponse"
+        "401":
+          description: Invalid webhook key
+
+  /webhooks/keys:
+    get:
+      operationId: listWebhookKeys
+      tags: [webhooks]
+      summary: List webhook API keys
+      responses:
+        "200":
+          description: List of keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookKey"
+    post:
+      operationId: createWebhookKey
+      tags: [webhooks]
+      summary: Create a new webhook API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookKeyBody"
+      responses:
+        "201":
+          description: Key created (shown once only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewWebhookKeyResponse"
+
+  /webhooks/keys/{id}:
+    delete:
+      operationId: deleteWebhookKey
+      tags: [webhooks]
+      summary: Revoke a webhook API key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Revoked
+
   # Audit Logs
   /audit-logs:
     get:
@@ -811,6 +942,12 @@ components:
           type: number
         confidenceScore:
           type: number
+        mlAnomalyScore:
+          type: number
+          description: Isolation Forest anomaly score 0-100 (>=65 flagged)
+        mlAnomalyFlag:
+          type: boolean
+          description: True if Isolation Forest flagged this entry as anomalous
         overridden:
           type: boolean
         overrideReason:
@@ -833,6 +970,14 @@ components:
           enum: [HIGH, MEDIUM, LOW]
         reason:
           type: string
+        feedbackCategory:
+          type: string
+          enum: [CLERICAL_ERROR, POLICY_EXCEPTION, BUSINESS_JUSTIFICATION, SYSTEM_ERROR, OTHER]
+          description: Structured HITL feedback category for model improvement
+        confidenceLevel:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+          description: Auditor's confidence in the override decision
       required: [riskLevel, reason]
 
     # AI Explanations
@@ -1058,10 +1203,122 @@ components:
           type: string
         ipAddress:
           type: string
+        previousValue:
+          type: string
+          description: Previous risk level before override
+        metadata:
+          type: object
+          description: Structured HITL metadata (feedbackCategory, confidenceLevel, auditorName, etc.)
+          additionalProperties: true
         createdAt:
           type: string
           format: date-time
       required: [id, action, entityType, createdAt]
+
+    # Google Drive
+    DriveFile:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        size:
+          type: string
+        modifiedTime:
+          type: string
+        mimeType:
+          type: string
+      required: [id, name, mimeType]
+
+    DriveFilesResponse:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriveFile"
+      required: [files]
+
+    DriveImportBody:
+      type: object
+      properties:
+        fileId:
+          type: string
+        fileName:
+          type: string
+      required: [fileId, fileName]
+
+    # Webhooks
+    WebhookTriggerBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [score-engagement, get-results]
+        engagementId:
+          type: integer
+      required: [type, engagementId]
+
+    WebhookTriggerResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        engagementId:
+          type: integer
+        entriesScored:
+          type: integer
+        triggeredAt:
+          type: string
+        entries:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      required: [ok, engagementId]
+
+    WebhookKey:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        keyPrefix:
+          type: string
+        active:
+          type: boolean
+        lastUsedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, keyPrefix, active, createdAt]
+
+    CreateWebhookKeyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        createdBy:
+          type: integer
+      required: [name, createdBy]
+
+    NewWebhookKeyResponse:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Full API key — shown once only
+        prefix:
+          type: string
+        name:
+          type: string
+        message:
+          type: string
+      required: [key, prefix, name, message]
 
     BeneishTag:
       type: object

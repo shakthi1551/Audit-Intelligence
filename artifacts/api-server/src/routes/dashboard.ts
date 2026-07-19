@@ -76,7 +76,7 @@ router.get(
   "/engagements/:id/summary",
   async (req: AuthenticatedRequest, res) => {
     try {
-      const engId = parseInt(req.params.id, 10);
+      const engId = parseInt(req.params.id as string, 10);
       const [eng] = await db
         .select()
         .from(engagementsTable)
@@ -242,7 +242,7 @@ router.get(
   "/engagements/:id/heatmap/users",
   async (req: AuthenticatedRequest, res) => {
     try {
-      const engId = parseInt(req.params.id, 10);
+      const engId = parseInt(req.params.id as string, 10);
       console.log(
         "DEBUG engId:",
         engId,
@@ -314,7 +314,7 @@ router.get(
   "/engagements/:id/heatmap/time",
   async (req: AuthenticatedRequest, res) => {
     try {
-      const engId = parseInt(req.params.id, 10);
+      const engId = parseInt(req.params.id as string, 10);
       const entries = await db
         .select()
         .from(journalEntriesTable)
@@ -381,7 +381,7 @@ router.get(
   "/engagements/:id/risk-distribution",
   async (req: AuthenticatedRequest, res) => {
     try {
-      const engId = parseInt(req.params.id, 10);
+      const engId = parseInt(req.params.id as string, 10);
       const entries = await db
         .select()
         .from(journalEntriesTable)
@@ -432,7 +432,7 @@ router.get(
   "/engagements/:id/benford",
   async (req: AuthenticatedRequest, res) => {
     try {
-      const engId = parseInt(req.params.id, 10);
+      const engId = parseInt(req.params.id as string, 10);
       const entries = await db
         .select()
         .from(journalEntriesTable)
@@ -466,7 +466,7 @@ router.get(
   "/engagements/:id/duplicates",
   async (req: AuthenticatedRequest, res) => {
     try {
-      const engId = parseInt(req.params.id, 10);
+      const engId = parseInt(req.params.id as string, 10);
       console.log(
         "engId:",
         engId,
