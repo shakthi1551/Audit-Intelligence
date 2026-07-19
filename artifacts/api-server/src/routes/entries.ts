@@ -13,7 +13,7 @@ router.use(requireAuth);
 // Get single entry with full details
 router.get("/:entryId", async (req: AuthenticatedRequest, res) => {
   try {
-    const entryId = parseInt(req.params.entryId, 10);
+    const entryId = parseInt(req.params.entryId as string, 10);
     const [entry] = await db.select().from(journalEntriesTable).where(eq(journalEntriesTable.id, entryId));
     if (!entry) {
       res.status(404).json({ error: "Entry not found" });
@@ -44,11 +44,21 @@ router.get("/:entryId", async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// Auditor override
+// Auditor override (HITL)
 router.post("/:entryId/override", async (req: AuthenticatedRequest, res) => {
   try {
-    const entryId = parseInt(req.params.entryId, 10);
-    const { riskLevel, reason } = req.body;
+    const entryId = parseInt(req.params.entryId as string, 10);
+    const {
+      riskLevel,
+      reason,
+      feedbackCategory,
+      confidenceLevel,
+    } = req.body as {
+      riskLevel: "HIGH" | "MEDIUM" | "LOW";
+      reason: string;
+      feedbackCategory?: "CLERICAL_ERROR" | "POLICY_EXCEPTION" | "BUSINESS_JUSTIFICATION" | "SYSTEM_ERROR" | "OTHER";
+      confidenceLevel?: "HIGH" | "MEDIUM" | "LOW";
+    };
 
     if (!riskLevel || !reason) {
       res.status(400).json({ error: "riskLevel and reason are required" });
@@ -61,12 +71,15 @@ router.post("/:entryId/override", async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    // Get user name
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+
+    // Capture previous risk level for audit trail
+    const [existing] = await db.select().from(riskScoresTable).where(eq(riskScoresTable.entryId, entryId));
+    const previousRiskLevel = existing?.riskLevel ?? null;
 
     const [updated] = await db.update(riskScoresTable)
       .set({
-        riskLevel: riskLevel as "HIGH" | "MEDIUM" | "LOW",
+        riskLevel,
         overridden: true,
         overrideReason: reason,
         overriddenBy: user?.name ?? req.userEmail ?? "Unknown",
@@ -80,15 +93,24 @@ router.post("/:entryId/override", async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    // Log action
+    // Rich audit log with HITL metadata
     await db.insert(auditLogsTable).values({
       engagementId: entry.engagementId,
       userId: req.userId!,
       action: "RISK_OVERRIDE",
       entityType: "journal_entry",
       entityId: entryId,
-      details: `Risk level changed to ${riskLevel}: ${reason}`,
+      details: `Risk level changed from ${previousRiskLevel ?? "UNKNOWN"} to ${riskLevel}: ${reason}`,
+      previousValue: previousRiskLevel ?? undefined,
       ipAddress: req.ip,
+      metadata: {
+        feedbackCategory: feedbackCategory ?? "OTHER",
+        confidenceLevel: confidenceLevel ?? "MEDIUM",
+        newRiskLevel: riskLevel,
+        previousRiskLevel,
+        auditorName: user?.name ?? req.userEmail ?? "Unknown",
+        reason,
+      },
     });
 
     res.json({
@@ -110,7 +132,7 @@ router.post("/:entryId/override", async (req: AuthenticatedRequest, res) => {
 // Get AI explanation
 router.get("/:entryId/explanation", async (req: AuthenticatedRequest, res) => {
   try {
-    const entryId = parseInt(req.params.entryId, 10);
+    const entryId = parseInt(req.params.entryId as string, 10);
     const [explanation] = await db.select().from(aiExplanationsTable).where(eq(aiExplanationsTable.entryId, entryId));
     if (!explanation) {
       res.status(404).json({ error: "No AI explanation available" });
@@ -126,7 +148,7 @@ router.get("/:entryId/explanation", async (req: AuthenticatedRequest, res) => {
 // Generate AI explanation
 router.post("/:entryId/explanation", async (req: AuthenticatedRequest, res) => {
   try {
-    const entryId = parseInt(req.params.entryId, 10);
+    const entryId = parseInt(req.params.entryId as string, 10);
     const [entry] = await db.select().from(journalEntriesTable).where(eq(journalEntriesTable.id, entryId));
     if (!entry) {
       res.status(404).json({ error: "Entry not found" });

@@ -8,6 +8,8 @@ import dashboardRouter from "./dashboard.js";
 import engagementDashboardRouter from "./engagement-dashboard.js";
 import reportsRouter from "./reports.js";
 import auditLogsRouter from "./audit-logs.js";
+import driveRouter from "./drive.js";
+import webhooksRouter from "./webhooks.js";
 
 const router: IRouter = Router();
 
@@ -16,6 +18,8 @@ router.use("/auth", authRouter);
 router.use("/engagements", engagementsRouter);
 // Journal entry upload and list under engagements/:id
 router.use("/engagements", journalEntriesRouter);
+// Google Drive import: /engagements/:id/import-drive
+router.use("/engagements", driveRouter);
 // Engagement-specific dashboard endpoints: /engagements/:id/dashboard, /heatmap/*, /benford, /duplicates, /risk-distribution
 router.use("/engagements", engagementDashboardRouter);
 // Individual entries: /entries/:entryId
@@ -26,5 +30,9 @@ router.use("/dashboard", dashboardRouter);
 router.use("/", reportsRouter);
 // Audit logs
 router.use("/audit-logs", auditLogsRouter);
+// Google Drive file listing
+router.use("/drive", driveRouter);
+// Webhook automation endpoints (for MAKE and similar tools)
+router.use("/webhooks", webhooksRouter);
 
 export default router;

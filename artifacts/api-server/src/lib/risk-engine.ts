@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { journalEntriesTable, riskScoresTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { runIsolationForest } from "./iforest.js";
 
 interface RawEntry {
   id: number;
@@ -20,7 +21,7 @@ const HIGH_RISK_KEYWORDS = [
   "cash", "petty cash", "personal", "expense", "prepaid",
 ];
 
-const WEEKEND_DAYS = [0, 6]; // Sunday, Saturday
+const WEEKEND_DAYS = [0, 6];
 
 function getHour(timeStr: string | null): number | null {
   if (!timeStr) return null;
@@ -31,13 +32,9 @@ function getHour(timeStr: string | null): number | null {
 
 function scorePostingTime(entry: RawEntry): number {
   const hour = getHour(entry.postingTime);
-  if (hour === null) return 10; // Missing time = slight risk
-
-  // Outside business hours (before 8am or after 6pm) = high risk
+  if (hour === null) return 10;
   if (hour < 8 || hour >= 18) return 25;
-  // Early morning (8-9) or late evening (17-18) = medium risk
   if (hour < 9 || hour >= 17) return 15;
-  // Normal hours
   return 0;
 }
 
@@ -48,7 +45,6 @@ function scoreAmount(amount: number, allAmounts: number[]): number {
   const p99 = sorted[Math.floor(sorted.length * 0.99)];
   const mean = allAmounts.reduce((s, v) => s + v, 0) / allAmounts.length;
 
-  // Round numbers are suspicious
   const isRound = amount % 1000 === 0 && amount > 0;
   const isVeryLarge = amount > p99;
   const isLarge = amount > p95;
@@ -68,7 +64,6 @@ function scoreUserConcentration(postedBy: string, allEntries: RawEntry[]): numbe
   const total = allEntries.length;
   const userPct = ((userCounts[postedBy] ?? 0) / total) * 100;
 
-  // One user posting > 30% of entries
   if (userPct > 50) return 20;
   if (userPct > 30) return 12;
   if (userPct > 20) return 8;
@@ -81,14 +76,13 @@ function scoreKeywords(description: string): number {
   if (matches.length >= 3) return 20;
   if (matches.length === 2) return 14;
   if (matches.length === 1) return 8;
-  if (lower.length < 5) return 10; // Suspiciously short description
+  if (lower.length < 5) return 10;
   return 0;
 }
 
 function scoreFrequency(entry: RawEntry, allEntries: RawEntry[]): number {
-  // Check for same user posting similar amounts on same day
   const sameUserSameDay = allEntries.filter(
-    e => e.postedBy === entry.postedBy && e.entryDate === entry.entryDate && e.id !== entry.id
+    e => e.postedBy === entry.postedBy && e.entryDate === entry.entryDate && e.id !== entry.id,
   );
   if (sameUserSameDay.length > 10) return 10;
   if (sameUserSameDay.length > 5) return 6;
@@ -110,6 +104,9 @@ export async function scoreEntries(engagementId: number): Promise<void> {
 
   const amounts = entries.map(e => parseFloat(e.amount));
 
+  // Run Isolation Forest across all entries to produce ML anomaly scores
+  const mlScores = runIsolationForest(entries as RawEntry[]);
+
   for (const entry of entries) {
     const amount = parseFloat(entry.amount);
     const postingTimeScore = scorePostingTime(entry as RawEntry);
@@ -121,12 +118,13 @@ export async function scoreEntries(engagementId: number): Promise<void> {
     const totalScore = postingTimeScore + amountScore + userConcentrationScore + keywordScore + frequencyScore;
     const riskLevel = classifyRisk(totalScore);
 
-    // Confidence based on data completeness
     const hasTime = !!entry.postingTime;
     const hasAccounts = !!entry.debitAccount && !!entry.creditAccount;
     const confidenceScore = (hasTime && hasAccounts) ? 90 : hasTime ? 80 : 70;
 
-    // Upsert risk score
+    const mlAnomalyScore = mlScores.get(entry.id) ?? 50;
+    const mlAnomalyFlag = mlAnomalyScore >= 65;
+
     const existing = await db.select().from(riskScoresTable)
       .where(eq(riskScoresTable.entryId, entry.id));
 
@@ -141,6 +139,8 @@ export async function scoreEntries(engagementId: number): Promise<void> {
           keywordScore: keywordScore.toFixed(2),
           frequencyScore: frequencyScore.toFixed(2),
           confidenceScore: confidenceScore.toFixed(2),
+          mlAnomalyScore,
+          mlAnomalyFlag,
         })
         .where(eq(riskScoresTable.entryId, entry.id));
     } else {
@@ -154,6 +154,8 @@ export async function scoreEntries(engagementId: number): Promise<void> {
         keywordScore: keywordScore.toFixed(2),
         frequencyScore: frequencyScore.toFixed(2),
         confidenceScore: confidenceScore.toFixed(2),
+        mlAnomalyScore,
+        mlAnomalyFlag,
       });
     }
   }

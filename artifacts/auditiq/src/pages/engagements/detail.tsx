@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useGetEngagement, getGetEngagementQueryKey, useGetDashboardSummary, getGetDashboardSummaryQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Upload, FileText, BarChart3, Clock, AlertTriangle, Copy } from "lucide-react";
+import { ArrowLeft, Upload, FileText, BarChart3, Clock, AlertTriangle, Copy, History } from "lucide-react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,6 +13,8 @@ import HeatmapsTab from "./tabs/heatmaps-tab";
 import BenfordTab from "./tabs/benford-tab";
 import DuplicatesTab from "./tabs/duplicates-tab";
 import ReportsTab from "./tabs/reports-tab";
+import AuditTrailTab from "./tabs/audit-trail-tab";
+import { DriveImportDialog } from "@/components/drive-import-dialog";
 
 export default function EngagementDetail({ params }: { params?: { id: string } }) {
   const id = parseInt(params?.id || "0", 10);
@@ -52,39 +54,46 @@ export default function EngagementDetail({ params }: { params?: { id: string } }
           </div>
         </div>
         
-        <Button asChild>
-          <Link href={`/engagements/${id}/upload`}>
-            <Upload className="mr-2 h-4 w-4" />
-            Upload Journal Entries
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <DriveImportDialog engagementId={id} />
+          <Button asChild>
+            <Link href={`/engagements/${id}/upload`}>
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Journal Entries
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6 lg:w-[800px]">
+        <TabsList className="flex flex-wrap h-auto gap-1 w-full lg:w-auto">
           <TabsTrigger value="overview">
-            <BarChart3 className="h-4 w-4 mr-2 hidden sm:block" />
+            <BarChart3 className="h-4 w-4 mr-1.5 hidden sm:block" />
             Overview
           </TabsTrigger>
           <TabsTrigger value="entries">
-            <FileText className="h-4 w-4 mr-2 hidden sm:block" />
+            <FileText className="h-4 w-4 mr-1.5 hidden sm:block" />
             Entries
           </TabsTrigger>
           <TabsTrigger value="heatmaps">
-            <Clock className="h-4 w-4 mr-2 hidden sm:block" />
+            <Clock className="h-4 w-4 mr-1.5 hidden sm:block" />
             Heatmaps
           </TabsTrigger>
           <TabsTrigger value="benford">
-            <BarChart3 className="h-4 w-4 mr-2 hidden sm:block" />
+            <BarChart3 className="h-4 w-4 mr-1.5 hidden sm:block" />
             Benford
           </TabsTrigger>
           <TabsTrigger value="duplicates">
-            <Copy className="h-4 w-4 mr-2 hidden sm:block" />
+            <Copy className="h-4 w-4 mr-1.5 hidden sm:block" />
             Duplicates
           </TabsTrigger>
           <TabsTrigger value="reports">
-            <AlertTriangle className="h-4 w-4 mr-2 hidden sm:block" />
+            <AlertTriangle className="h-4 w-4 mr-1.5 hidden sm:block" />
             Reports
+          </TabsTrigger>
+          <TabsTrigger value="audit-trail">
+            <History className="h-4 w-4 mr-1.5 hidden sm:block" />
+            Audit Trail
           </TabsTrigger>
         </TabsList>
         
@@ -110,6 +119,10 @@ export default function EngagementDetail({ params }: { params?: { id: string } }
         
         <TabsContent value="reports" className="space-y-4">
           <ReportsTab engagementId={id} />
+        </TabsContent>
+
+        <TabsContent value="audit-trail" className="space-y-4">
+          <AuditTrailTab engagementId={id} />
         </TabsContent>
       </Tabs>
     </div>

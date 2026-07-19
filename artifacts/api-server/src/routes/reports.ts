@@ -11,7 +11,7 @@ router.use(requireAuth);
 // PDF Report (simplified as HTML that can be printed)
 router.get("/engagements/:id/report/pdf", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const [eng] = await db.select().from(engagementsTable)
       .where(and(eq(engagementsTable.id, engId), eq(engagementsTable.userId, req.userId!)));
     if (!eng) {
@@ -133,7 +133,7 @@ ${entries.map(e => {
 // Excel Report (CSV format)
 router.get("/engagements/:id/report/excel", async (req: AuthenticatedRequest, res) => {
   try {
-    const engId = parseInt(req.params.id, 10);
+    const engId = parseInt(req.params.id as string, 10);
     const [eng] = await db.select().from(engagementsTable)
       .where(and(eq(engagementsTable.id, engId), eq(engagementsTable.userId, req.userId!)));
     if (!eng) {

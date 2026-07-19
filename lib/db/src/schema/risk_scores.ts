@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, numeric, boolean, pgEnum, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { journalEntriesTable } from "./journal_entries";
@@ -16,6 +16,8 @@ export const riskScoresTable = pgTable("risk_scores", {
   keywordScore: numeric("keyword_score", { precision: 5, scale: 2 }).notNull().default("0"),
   frequencyScore: numeric("frequency_score", { precision: 5, scale: 2 }).notNull().default("0"),
   confidenceScore: numeric("confidence_score", { precision: 5, scale: 2 }).notNull().default("85"),
+  mlAnomalyScore: real("ml_anomaly_score"),
+  mlAnomalyFlag: boolean("ml_anomaly_flag").notNull().default(false),
   overridden: boolean("overridden").notNull().default(false),
   overrideReason: text("override_reason"),
   overriddenBy: text("overridden_by"),

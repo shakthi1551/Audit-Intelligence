@@ -181,6 +181,16 @@ export const ListJournalEntriesResponse = zod.object({
           keywordScore: zod.number().optional(),
           frequencyScore: zod.number().optional(),
           confidenceScore: zod.number(),
+          mlAnomalyScore: zod
+            .number()
+            .optional()
+            .describe("Isolation Forest anomaly score 0-100 (>=65 flagged)"),
+          mlAnomalyFlag: zod
+            .boolean()
+            .optional()
+            .describe(
+              "True if Isolation Forest flagged this entry as anomalous",
+            ),
           overridden: zod.boolean(),
           overrideReason: zod.string().optional(),
           overriddenBy: zod.string().optional(),
@@ -246,6 +256,14 @@ export const GetJournalEntryResponse = zod.object({
       keywordScore: zod.number().optional(),
       frequencyScore: zod.number().optional(),
       confidenceScore: zod.number(),
+      mlAnomalyScore: zod
+        .number()
+        .optional()
+        .describe("Isolation Forest anomaly score 0-100 (>=65 flagged)"),
+      mlAnomalyFlag: zod
+        .boolean()
+        .optional()
+        .describe("True if Isolation Forest flagged this entry as anomalous"),
       overridden: zod.boolean(),
       overrideReason: zod.string().optional(),
       overriddenBy: zod.string().optional(),
@@ -276,6 +294,20 @@ export const OverrideRiskScoreParams = zod.object({
 export const OverrideRiskScoreBody = zod.object({
   riskLevel: zod.enum(["HIGH", "MEDIUM", "LOW"]),
   reason: zod.string(),
+  feedbackCategory: zod
+    .enum([
+      "CLERICAL_ERROR",
+      "POLICY_EXCEPTION",
+      "BUSINESS_JUSTIFICATION",
+      "SYSTEM_ERROR",
+      "OTHER",
+    ])
+    .optional()
+    .describe("Structured HITL feedback category for model improvement"),
+  confidenceLevel: zod
+    .enum(["HIGH", "MEDIUM", "LOW"])
+    .optional()
+    .describe("Auditor's confidence in the override decision"),
 });
 
 export const OverrideRiskScoreResponse = zod.object({
@@ -289,6 +321,14 @@ export const OverrideRiskScoreResponse = zod.object({
   keywordScore: zod.number().optional(),
   frequencyScore: zod.number().optional(),
   confidenceScore: zod.number(),
+  mlAnomalyScore: zod
+    .number()
+    .optional()
+    .describe("Isolation Forest anomaly score 0-100 (>=65 flagged)"),
+  mlAnomalyFlag: zod
+    .boolean()
+    .optional()
+    .describe("True if Isolation Forest flagged this entry as anomalous"),
   overridden: zod.boolean(),
   overrideReason: zod.string().optional(),
   overriddenBy: zod.string().optional(),
@@ -383,6 +423,16 @@ export const GetDashboardSummaryResponse = zod.object({
             keywordScore: zod.number().optional(),
             frequencyScore: zod.number().optional(),
             confidenceScore: zod.number(),
+            mlAnomalyScore: zod
+              .number()
+              .optional()
+              .describe("Isolation Forest anomaly score 0-100 (>=65 flagged)"),
+            mlAnomalyFlag: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True if Isolation Forest flagged this entry as anomalous",
+              ),
             overridden: zod.boolean(),
             overrideReason: zod.string().optional(),
             overriddenBy: zod.string().optional(),
@@ -562,6 +612,16 @@ export const GetDuplicatesResponseItem = zod.object({
           keywordScore: zod.number().optional(),
           frequencyScore: zod.number().optional(),
           confidenceScore: zod.number(),
+          mlAnomalyScore: zod
+            .number()
+            .optional()
+            .describe("Isolation Forest anomaly score 0-100 (>=65 flagged)"),
+          mlAnomalyFlag: zod
+            .boolean()
+            .optional()
+            .describe(
+              "True if Isolation Forest flagged this entry as anomalous",
+            ),
           overridden: zod.boolean(),
           overrideReason: zod.string().optional(),
           overriddenBy: zod.string().optional(),
@@ -610,6 +670,89 @@ export const DownloadExcelReportParams = zod.object({
 });
 
 /**
+ * @summary List CSV/XLSX files from connected Google Drive
+ */
+export const ListDriveFilesHeader = zod.object({
+  "X-Drive-Token": zod.string(),
+});
+
+export const ListDriveFilesResponse = zod.object({
+  files: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      size: zod.string().optional(),
+      modifiedTime: zod.string().optional(),
+      mimeType: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Download a Drive file and process as journal entries
+ */
+export const ImportFromDriveParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ImportFromDriveHeader = zod.object({
+  "X-Drive-Token": zod.string(),
+});
+
+export const ImportFromDriveBody = zod.object({
+  fileId: zod.string(),
+  fileName: zod.string(),
+});
+
+/**
+ * @summary Trigger an audit pipeline action (for MAKE/Zapier automation)
+ */
+export const TriggerWebhookHeader = zod.object({
+  "X-Webhook-Key": zod.string(),
+});
+
+export const TriggerWebhookBody = zod.object({
+  type: zod.enum(["score-engagement", "get-results"]),
+  engagementId: zod.number(),
+});
+
+export const TriggerWebhookResponse = zod.object({
+  ok: zod.boolean(),
+  engagementId: zod.number(),
+  entriesScored: zod.number().optional(),
+  triggeredAt: zod.string().optional(),
+  entries: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+});
+
+/**
+ * @summary List webhook API keys
+ */
+export const ListWebhookKeysResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  keyPrefix: zod.string(),
+  active: zod.boolean(),
+  lastUsedAt: zod.coerce.date().optional(),
+  createdAt: zod.coerce.date(),
+});
+export const ListWebhookKeysResponse = zod.array(ListWebhookKeysResponseItem);
+
+/**
+ * @summary Create a new webhook API key
+ */
+export const CreateWebhookKeyBody = zod.object({
+  name: zod.string(),
+  createdBy: zod.number(),
+});
+
+/**
+ * @summary Revoke a webhook API key
+ */
+export const DeleteWebhookKeyParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary List audit trail events
  */
 export const listAuditLogsQueryPageDefault = 1;
@@ -628,6 +771,16 @@ export const ListAuditLogsResponseItem = zod.object({
   entityId: zod.number().optional(),
   details: zod.string().optional(),
   ipAddress: zod.string().optional(),
+  previousValue: zod
+    .string()
+    .optional()
+    .describe("Previous risk level before override"),
+  metadata: zod
+    .record(zod.string(), zod.unknown())
+    .optional()
+    .describe(
+      "Structured HITL metadata (feedbackCategory, confidenceLevel, auditorName, etc.)",
+    ),
   createdAt: zod.coerce.date(),
 });
 export const ListAuditLogsResponse = zod.array(ListAuditLogsResponseItem);
