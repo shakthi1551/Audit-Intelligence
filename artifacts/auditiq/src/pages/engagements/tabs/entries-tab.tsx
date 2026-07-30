@@ -1,176 +1,469 @@
-import React, { useState } from "react";
-import { useListJournalEntries, getListJournalEntriesQueryKey, useGetAiExplanation, useGenerateAiExplanation, useOverrideRiskScore } from "@workspace/api-client-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import {
+  useListJournalEntries,
+  getListJournalEntriesQueryKey,
+  useGetAiExplanation,
+  useGenerateAiExplanation,
+  useOverrideRiskScore,
+  type ListJournalEntriesRiskLevel,
+  type OverrideBodyRiskLevel,
+  type OverrideBodyFeedbackCategory,
+  type OverrideBodyConfidenceLevel,
+  type BeneishTag,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
-import { ChevronDown, ChevronRight, Bot, ShieldAlert, Shield, History, AlertTriangle, FileText } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertTriangle, ChevronDown, ChevronRight, Bot, Shield, Filter } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { ListJournalEntriesRiskLevel, OverrideBodyRiskLevel, OverrideBodyFeedbackCategory, OverrideBodyConfidenceLevel, BeneishTag } from "@workspace/api-client-react";
-import { Progress } from "@/components/ui/progress";
-import { TextHighlight, FinNegCount } from "@/components/text-highlight";
+import { format } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 import { RiskNarrativeBox } from "@/components/risk-narrative";
+import { TextHighlight } from "@/components/text-highlight";
 import { ShapChart } from "@/components/shap-chart";
 
-function RiskBadge({ level }: { level?: string }) {
-  if (level === "HIGH") return <Badge className="bg-destructive hover:bg-destructive text-destructive-foreground">HIGH</Badge>;
-  if (level === "MEDIUM") return <Badge className="bg-amber-500 hover:bg-amber-500 text-white">MEDIUM</Badge>;
-  if (level === "LOW") return <Badge className="bg-green-500 hover:bg-green-500 text-white">LOW</Badge>;
-  return <Badge variant="outline">UNKNOWN</Badge>;
+interface EntriesTabProps {
+  engagementId: number;
+}
+
+function RiskPill({ level, score }: { level?: string; score?: number }) {
+  const colors = {
+    HIGH: "bg-destructive/20 text-destructive border-destructive/40 glow-destructive",
+    MEDIUM: "bg-chart-3/20 text-chart-3 border-chart-3/40",
+    LOW: "bg-chart-5/20 text-chart-5 border-chart-5/40",
+  };
+
+  const color = colors[level as keyof typeof colors] || "bg-muted text-muted-foreground border-border";
+
+  return (
+    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border font-bold ${color}`}>
+      <span className="text-xs">{level}</span>
+      {score !== undefined && (
+        <span className="text-lg" style={{ fontFamily: "var(--font-display)" }}>
+          {score.toFixed(0)}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function BeneishTagBadge({ tag }: { tag: BeneishTag }) {
-  const colors: Record<string, string> = {
-    HIGH: "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300",
-    MEDIUM: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300",
-    LOW: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300",
+  const colors = {
+    HIGH: "bg-destructive/20 text-destructive border-destructive/40",
+    MEDIUM: "bg-chart-3/20 text-chart-3 border-chart-3/40",
+    LOW: "bg-muted text-muted-foreground border-border",
   };
+
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${colors[tag.severity]} cursor-help whitespace-nowrap`}
+      className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded border ${colors[tag.severity]} cursor-help whitespace-nowrap`}
       title={tag.description}
     >
-      <AlertTriangle className="h-2.5 w-2.5 flex-shrink-0" />
+      <AlertTriangle className="h-3 w-3" />
       {tag.variable}
     </span>
   );
 }
 
-function FormatCurrency({ value }: { value: number }) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+export default function EntriesTab({ engagementId }: EntriesTabProps) {
+  const [page, setPage] = useState(1);
+  const [riskFilter, setRiskFilter] = useState<ListJournalEntriesRiskLevel | undefined>(undefined);
+  const [userFilter, setUserFilter] = useState("");
+  const [expandedEntry, setExpandedEntry] = useState<number | null>(null);
+
+  const { data, isLoading } = useListJournalEntries(engagementId, {
+    page,
+    pageSize: 20,
+    riskLevel: riskFilter,
+    user: userFilter || undefined,
+  }, {
+    query: {
+      enabled: !!engagementId,
+      queryKey: getListJournalEntriesQueryKey(engagementId, { page, pageSize: 20, riskLevel: riskFilter, user: userFilter || undefined }),
+    },
+  });
+
+  const entries = data?.entries || [];
+  const totalPages = data?.totalPages || 1;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading journal entries...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Filter bar */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-card border border-card-border rounded-xl p-4"
+      >
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <Input
+              placeholder="Filter by user..."
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              className="bg-input border-border"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-muted-foreground" />
+            <Button
+              variant={!riskFilter ? "default" : "outline"}
+              onClick={() => setRiskFilter(undefined)}
+              className={!riskFilter ? "bg-primary text-primary-foreground" : ""}
+              size="sm"
+            >
+              All
+            </Button>
+            <Button
+              variant={riskFilter === "HIGH" ? "default" : "outline"}
+              onClick={() => setRiskFilter("HIGH")}
+              className={riskFilter === "HIGH" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+              size="sm"
+            >
+              HIGH
+            </Button>
+            <Button
+              variant={riskFilter === "MEDIUM" ? "default" : "outline"}
+              onClick={() => setRiskFilter("MEDIUM")}
+              className={riskFilter === "MEDIUM" ? "bg-chart-3 text-foreground hover:bg-chart-3/90" : ""}
+              size="sm"
+            >
+              MEDIUM
+            </Button>
+            <Button
+              variant={riskFilter === "LOW" ? "default" : "outline"}
+              onClick={() => setRiskFilter("LOW")}
+              className={riskFilter === "LOW" ? "bg-chart-5 text-foreground hover:bg-chart-5/90" : ""}
+              size="sm"
+            >
+              LOW
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Entries list */}
+      <div className="space-y-3">
+        {entries.map((entry, index) => {
+          const isExpanded = expandedEntry === entry.id;
+          const isHighRisk = entry.riskScore?.riskLevel === "HIGH";
+
+          return (
+            <motion.div
+              key={entry.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.03 }}
+              className={`
+                bg-card border rounded-xl overflow-hidden transition-all
+                ${isHighRisk ? "border-destructive/40 bg-destructive/5" : "border-card-border"}
+                ${isExpanded ? "ring-2 ring-primary" : ""}
+              `}
+            >
+              {/* Main row */}
+              <div
+                className="p-4 cursor-pointer hover:bg-muted/30 transition-colors relative"
+                onClick={() => setExpandedEntry(isExpanded ? null : entry.id)}
+              >
+                {isHighRisk && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-destructive animate-pulse" />
+                )}
+                
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="sm" className="shrink-0 p-1">
+                    {isExpanded ? (
+                      <ChevronDown className="h-5 w-5 text-primary" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </Button>
+
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Date</p>
+                      <p className="font-semibold text-foreground">
+                        {format(new Date(entry.entryDate), "MMM dd, yyyy")}
+                      </p>
+                      {entry.postingTime && (
+                        <p className="text-xs text-muted-foreground">{entry.postingTime}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground">Posted By</p>
+                      <p className="font-semibold text-foreground">{entry.postedBy}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground">Amount</p>
+                      <p className="font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(entry.amount)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground">Accounts</p>
+                      <p className="text-sm text-foreground">
+                        {entry.debitAccount} → {entry.creditAccount}
+                      </p>
+                    </div>
+
+                    <div className="md:col-span-1">
+                      <p className="text-sm text-muted-foreground mb-1">Risk Score</p>
+                      <RiskPill
+                        level={entry.riskScore?.riskLevel}
+                        score={entry.riskScore?.totalScore}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {entry.beneishTags?.map((tag) => (
+                        <BeneishTagBadge key={tag.variable} tag={tag} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 ml-12">
+                  <p className="text-sm text-muted-foreground line-clamp-1">{entry.description}</p>
+                </div>
+              </div>
+
+              {/* Expanded section */}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="border-t border-card-border bg-muted/20"
+                  >
+                    <ExpandedEntryPanel
+                      entryId={entry.id}
+                      entry={entry}
+                      engagementId={engagementId}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-8">
+          <Button
+            variant="outline"
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground px-4">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
+            disabled={page === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 }
 
-function ExplanationPanel({
-  entryId, score, description, entryDate, postingTime, postedBy, amount, debitAccount,
+function ExpandedEntryPanel({
+  entryId,
+  entry,
+  engagementId,
 }: {
   entryId: number;
-  score: any;
-  description: string;
-  entryDate: string;
-  postingTime?: string;
-  postedBy: string;
-  amount: number;
-  debitAccount?: string;
+  entry: any;
+  engagementId: number;
 }) {
-  const { data: explanation, isLoading } = useGetAiExplanation(entryId);
+  const { data: explanation, isLoading: loadingExplanation } = useGetAiExplanation(entryId);
   const generateMutation = useGenerateAiExplanation();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const handleGenerate = () => {
-    generateMutation.mutate({ entryId }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/api/journal-entries', entryId, 'explanation'] });
+    generateMutation.mutate(
+      { entryId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/journal-entries", entryId, "explanation"] });
+          toast({
+            title: "AI Explanation Generated",
+            description: "The AI has analyzed this entry and generated an explanation.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Generation Failed",
+            description: "Unable to generate AI explanation. Please try again.",
+            variant: "destructive",
+          });
+        },
       }
-    });
+    );
   };
 
   return (
-    <div className="p-4 bg-muted/30 border-t space-y-4">
-      <RiskNarrativeBox
-        entryDate={entryDate}
-        postingTime={postingTime}
-        postedBy={postedBy}
-        amount={amount}
-        description={description}
-        debitAccount={debitAccount}
-        score={score}
-      />
-
-      <div>
-        <h4 className="text-sm font-semibold mb-3 flex items-center">
-          <FileText className="h-4 w-4 mr-2" />
-          Description Analysis
-        </h4>
-        <TextHighlight text={description} />
+    <div className="p-6 space-y-6">
+      {/* Risk narrative */}
+      <div className="bg-card border border-card-border rounded-lg p-4">
+        <RiskNarrativeBox
+          entryDate={entry.entryDate}
+          postingTime={entry.postingTime}
+          postedBy={entry.postedBy}
+          amount={entry.amount}
+          description={entry.description}
+          debitAccount={entry.debitAccount}
+          score={entry.riskScore}
+        />
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <div>
-          <h4 className="text-sm font-semibold mb-3 flex items-center">
-            <ShieldAlert className="h-4 w-4 mr-2" />
-            XAI Feature Importance
-          </h4>
-          {score ? (
-            <ShapChart score={score} />
-          ) : (
-            <p className="text-sm text-muted-foreground">No score data available.</p>
-          )}
-          {score && (
-            <div className="flex justify-between items-center mt-3 pt-2 border-t text-xs text-muted-foreground">
-              <span>Rule-based total</span>
-              <span className="font-mono font-semibold text-foreground">{score?.totalScore || 0}/100</span>
+      {/* Description analysis */}
+      <div>
+        <h4 className="text-sm font-semibold text-foreground mb-3">Description Analysis</h4>
+        <div className="bg-muted/50 border border-border rounded-lg p-4">
+          <TextHighlight text={entry.description} />
+        </div>
+      </div>
+
+      {/* SHAP chart */}
+      {entry.riskScore && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3">XAI Feature Importance</h4>
+            <div className="bg-card border border-card-border rounded-lg p-4">
+              <ShapChart score={entry.riskScore} />
             </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold text-foreground mb-3">Risk Score Breakdown</h4>
+            <div className="bg-card border border-card-border rounded-lg p-4 space-y-3">
+              <ScoreBar label="Posting Time" score={entry.riskScore.postingTimeScore} />
+              <ScoreBar label="Amount" score={entry.riskScore.amountScore} />
+              <ScoreBar label="User Concentration" score={entry.riskScore.userConcentrationScore} />
+              <ScoreBar label="Keyword" score={entry.riskScore.keywordScore} />
+              <ScoreBar label="Frequency" score={entry.riskScore.frequencyScore} />
+              {entry.riskScore.mlAnomalyScore !== undefined && (
+                <ScoreBar label="ML Anomaly" score={entry.riskScore.mlAnomalyScore} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Explanation */}
+      <div className="bg-card border border-primary/30 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Bot className="h-4 w-4 text-primary" />
+            AI Explanation
+          </h4>
+          {!explanation && (
+            <Button
+              onClick={handleGenerate}
+              disabled={generateMutation.isPending}
+              size="sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              {generateMutation.isPending ? "Generating..." : "Generate"}
+            </Button>
           )}
         </div>
 
-        <div>
-          <h4 className="text-sm font-semibold mb-3 flex items-center">
-            <Bot className="h-4 w-4 mr-2" />
-            AI Explanation
-          </h4>
-          
-          {isLoading ? (
-            <div className="animate-pulse space-y-2">
-              <div className="h-4 bg-muted rounded w-full"></div>
-              <div className="h-4 bg-muted rounded w-5/6"></div>
-              <div className="h-4 bg-muted rounded w-4/6"></div>
-            </div>
-          ) : explanation ? (
-            <div className="space-y-3">
-              <div className="text-sm bg-background p-3 rounded border text-foreground/90 leading-relaxed">
-                {explanation.explanation}
-              </div>
-              {explanation.isaReference && (
-                <div className="text-xs bg-primary/10 text-primary px-2 py-1 rounded inline-block font-medium">
-                  {explanation.isaReference}
-                </div>
-              )}
-              {explanation.triggers && explanation.triggers.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {explanation.triggers.map((t: string, i: number) => (
-                    <span key={i} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground border">
-                      {t}
+        {loadingExplanation ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm">Loading explanation...</p>
+          </div>
+        ) : explanation ? (
+          <div className="space-y-3">
+            <p className="text-sm text-foreground leading-relaxed">{explanation.explanation}</p>
+            {explanation.triggers && explanation.triggers.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Key Triggers:</p>
+                <div className="flex flex-wrap gap-2">
+                  {explanation.triggers.map((trigger, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-medium border border-primary/30"
+                    >
+                      {trigger}
                     </span>
                   ))}
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center p-6 border border-dashed rounded bg-background">
-              <p className="text-sm text-muted-foreground mb-3">No AI explanation generated yet.</p>
-              <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generateMutation.isPending}>
-                {generateMutation.isPending ? "Generating..." : "Generate Explanation"}
-              </Button>
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No AI explanation available yet.</p>
+        )}
       </div>
-      <div className="text-xs text-muted-foreground mt-4 italic">
-        Disclaimer: This is a risk indicator, not an audit conclusion.
+
+      {/* Override button */}
+      <div className="flex justify-end">
+        <OverrideDialog entryId={entryId} currentRisk={entry.riskScore} engagementId={engagementId} />
       </div>
     </div>
   );
 }
 
-const FEEDBACK_CATEGORIES: { value: OverrideBodyFeedbackCategory; label: string; desc: string }[] = [
-  { value: "CLERICAL_ERROR",         label: "Clerical Error",           desc: "System mis-scored due to data entry issue" },
-  { value: "POLICY_EXCEPTION",       label: "Policy Exception",         desc: "Entry is permitted under approved policy" },
-  { value: "BUSINESS_JUSTIFICATION", label: "Business Justification",   desc: "Legitimate business rationale confirmed" },
-  { value: "SYSTEM_ERROR",           label: "System / Model Error",     desc: "Risk engine produced incorrect result" },
-  { value: "OTHER",                  label: "Other",                    desc: "Rationale explained in notes below" },
-];
+function ScoreBar({ label, score }: { label: string; score?: number }) {
+  if (score === undefined || score === null) return null;
 
-function OverrideDialog({ entryId, currentRisk, engagementId }: { entryId: number, currentRisk?: string, engagementId: number }) {
+  const percentage = Math.min(100, Math.max(0, score));
+  const color = percentage > 70 ? "bg-destructive" : percentage > 40 ? "bg-chart-3" : "bg-chart-5";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between text-sm mb-1">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-semibold text-foreground">{score.toFixed(1)}</span>
+      </div>
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div className={`h-full ${color} transition-all`} style={{ width: `${percentage}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function OverrideDialog({
+  entryId,
+  currentRisk,
+  engagementId,
+}: {
+  entryId: number;
+  currentRisk: any;
+  engagementId: number;
+}) {
   const [open, setOpen] = useState(false);
-  const [level, setLevel] = useState<OverrideBodyRiskLevel>((currentRisk as OverrideBodyRiskLevel) || "LOW");
+  const [riskLevel, setRiskLevel] = useState<OverrideBodyRiskLevel>("LOW");
   const [reason, setReason] = useState("");
   const [feedbackCategory, setFeedbackCategory] = useState<OverrideBodyFeedbackCategory>("OTHER");
   const [confidenceLevel, setConfidenceLevel] = useState<OverrideBodyConfidenceLevel>("MEDIUM");
@@ -179,287 +472,123 @@ function OverrideDialog({ entryId, currentRisk, engagementId }: { entryId: numbe
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const handleOverride = () => {
-    if (!reason.trim()) {
-      toast({ title: "Reason required", variant: "destructive" });
-      return;
-    }
+  const handleSubmit = () => {
     overrideMutation.mutate(
-      { entryId, data: { riskLevel: level, reason, feedbackCategory, confidenceLevel } },
+      {
+        entryId,
+        data: { riskLevel, reason, feedbackCategory, confidenceLevel },
+      },
       {
         onSuccess: () => {
-          toast({ title: "Override recorded", description: "Logged to audit trail with full rationale." });
+          queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey(engagementId, {}) });
+          toast({
+            title: "Risk Score Overridden",
+            description: "The risk assessment has been updated.",
+          });
           setOpen(false);
           setReason("");
-          queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey(engagementId) });
         },
-      },
+        onError: () => {
+          toast({
+            title: "Override Failed",
+            description: "Unable to override risk score. Please try again.",
+            variant: "destructive",
+          });
+        },
+      }
     );
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-7 text-xs">
-          <Shield className="h-3 w-3 mr-1" />
-          Override
+        <Button variant="outline" size="sm" className="border-chart-3 text-chart-3 hover:bg-chart-3/10">
+          <Shield className="h-4 w-4 mr-2" />
+          Override Risk
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-[500px] bg-card border-card-border">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Human-in-the-Loop Override
-          </DialogTitle>
+          <DialogTitle>Override Risk Assessment</DialogTitle>
           <DialogDescription>
-            Override the AI risk classification. All fields are logged permanently to the audit trail (ISA 230).
+            Manually adjust the risk level for this entry. Current: {currentRisk?.riskLevel || "UNKNOWN"}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
-          {/* New risk level */}
+        <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>New Risk Level</Label>
-            <Select value={level} onValueChange={(v) => setLevel(v as OverrideBodyRiskLevel)}>
-              <SelectTrigger>
+            <RadioGroup value={riskLevel} onValueChange={(val) => setRiskLevel(val as OverrideBodyRiskLevel)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="HIGH" id="high" />
+                <Label htmlFor="high" className="cursor-pointer">HIGH</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="MEDIUM" id="medium" />
+                <Label htmlFor="medium" className="cursor-pointer">MEDIUM</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="LOW" id="low" />
+                <Label htmlFor="low" className="cursor-pointer">LOW</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Category</Label>
+            <Select value={feedbackCategory} onValueChange={(val) => setFeedbackCategory(val as OverrideBodyFeedbackCategory)}>
+              <SelectTrigger className="bg-input border-border">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="HIGH">HIGH</SelectItem>
-                <SelectItem value="MEDIUM">MEDIUM</SelectItem>
-                <SelectItem value="LOW">LOW</SelectItem>
+                <SelectItem value="CLERICAL_ERROR">Clerical Error</SelectItem>
+                <SelectItem value="POLICY_EXCEPTION">Policy Exception</SelectItem>
+                <SelectItem value="BUSINESS_JUSTIFICATION">Business Justification</SelectItem>
+                <SelectItem value="SYSTEM_ERROR">System Error</SelectItem>
+                <SelectItem value="OTHER">Other</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Feedback category */}
           <div className="space-y-2">
-            <Label>Override Category <span className="text-muted-foreground font-normal">(HITL feedback)</span></Label>
-            <div className="space-y-1.5">
-              {FEEDBACK_CATEGORIES.map(cat => (
-                <button
-                  key={cat.value}
-                  type="button"
-                  onClick={() => setFeedbackCategory(cat.value)}
-                  className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg border text-left text-sm transition-colors ${
-                    feedbackCategory === cat.value
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:bg-muted/30"
-                  }`}
-                >
-                  <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${feedbackCategory === cat.value ? "border-primary bg-primary" : "border-muted-foreground"}`} />
-                  <div>
-                    <span className="font-medium">{cat.label}</span>
-                    <span className="text-muted-foreground ml-2 text-xs">{cat.desc}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <Label>Confidence</Label>
+            <Select value={confidenceLevel} onValueChange={(val) => setConfidenceLevel(val as OverrideBodyConfidenceLevel)}>
+              <SelectTrigger className="bg-input border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HIGH">High</SelectItem>
+                <SelectItem value="MEDIUM">Medium</SelectItem>
+                <SelectItem value="LOW">Low</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Confidence level */}
           <div className="space-y-2">
-            <Label>Override Confidence</Label>
-            <RadioGroup
-              value={confidenceLevel}
-              onValueChange={(v) => setConfidenceLevel(v as OverrideBodyConfidenceLevel)}
-              className="flex gap-4"
-            >
-              {(["HIGH", "MEDIUM", "LOW"] as OverrideBodyConfidenceLevel[]).map(lvl => (
-                <div key={lvl} className="flex items-center space-x-2">
-                  <RadioGroupItem value={lvl} id={`conf-${lvl}`} />
-                  <Label htmlFor={`conf-${lvl}`} className="font-normal cursor-pointer">{lvl}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-
-          {/* Rationale */}
-          <div className="space-y-2">
-            <Label>Auditor Rationale <span className="text-destructive">*</span></Label>
+            <Label>Reason</Label>
             <Textarea
-              placeholder="Provide a detailed justification for this override..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              rows={3}
+              placeholder="Explain why you're overriding this risk assessment..."
+              rows={4}
+              className="bg-input border-border"
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleOverride} disabled={overrideMutation.isPending || !reason.trim()}>
-            {overrideMutation.isPending ? "Saving…" : "Confirm Override"}
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!reason.trim() || overrideMutation.isPending}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          >
+            {overrideMutation.isPending ? "Submitting..." : "Submit Override"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-export default function EntriesTab({ engagementId }: { engagementId: number }) {
-  const [page, setPage] = useState(1);
-  const [riskFilter, setRiskFilter] = useState<string>("ALL");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-
-  const queryParams: any = { page, pageSize: 20 };
-  if (riskFilter !== "ALL") queryParams.riskLevel = riskFilter;
-
-  const { data, isLoading } = useListJournalEntries(engagementId, queryParams, {
-    query: { enabled: !!engagementId, queryKey: getListJournalEntriesQueryKey(engagementId, queryParams) }
-  });
-
-  const toggleRow = (id: number) => {
-    setExpandedId(expandedId === id ? null : id);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex space-x-2">
-          <Select value={riskFilter} onValueChange={setRiskFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by Risk" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Risk Levels</SelectItem>
-              <SelectItem value="HIGH">High Risk</SelectItem>
-              <SelectItem value="MEDIUM">Medium Risk</SelectItem>
-              <SelectItem value="LOW">Low Risk</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          {data?.total || 0} entries found
-        </div>
-      </div>
-
-      <Card>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40px]"></TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Risk</TableHead>
-                <TableHead className="w-[100px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">Loading entries...</TableCell>
-                </TableRow>
-              ) : !data || data.entries.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">No journal entries found</TableCell>
-                </TableRow>
-              ) : (
-                data.entries.map((entry) => (
-                  <React.Fragment key={entry.id}>
-                    <TableRow 
-                      className={`cursor-pointer ${expandedId === entry.id ? 'bg-muted/50' : ''}`}
-                      onClick={() => toggleRow(entry.id)}
-                    >
-                      <TableCell>
-                        {expandedId === entry.id ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {format(new Date(entry.entryDate), 'MMM dd, yyyy')}
-                        <div className="text-xs text-muted-foreground">{entry.postingTime}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-mono text-xs">{entry.debitAccount}</div>
-                        {entry.creditAccount && <div className="font-mono text-xs text-muted-foreground mt-1">{entry.creditAccount}</div>}
-                      </TableCell>
-                      <TableCell className="max-w-[250px]" title={entry.description}>
-                        <span className="truncate block">{entry.description}</span>
-                        <FinNegCount description={entry.description} />
-                      </TableCell>
-                      <TableCell>{entry.postedBy}</TableCell>
-                      <TableCell className="text-right font-mono font-medium">
-                        <FormatCurrency value={entry.amount} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <RiskBadge level={entry.riskScore?.riskLevel} />
-                            {entry.riskScore?.overridden && (
-                              <span title="Manually overridden">
-                                <History className="h-3 w-3 text-muted-foreground" />
-                              </span>
-                            )}
-                          </div>
-                          {(entry as any).beneishTags && (entry as any).beneishTags.length > 0 && (
-                            <div className="flex flex-wrap gap-0.5 mt-0.5">
-                              {(entry as any).beneishTags.map((tag: BeneishTag, i: number) => (
-                                <BeneishTagBadge key={i} tag={tag} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <OverrideDialog 
-                            entryId={entry.id} 
-                            currentRisk={entry.riskScore?.riskLevel} 
-                            engagementId={engagementId} 
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {expandedId === entry.id && (
-                      <TableRow className="bg-muted/50 hover:bg-muted/50 border-t-0">
-                        <TableCell colSpan={8} className="p-0">
-                          <ExplanationPanel
-                            entryId={entry.id}
-                            score={entry.riskScore}
-                            description={entry.description}
-                            entryDate={entry.entryDate}
-                            postingTime={entry.postingTime}
-                            postedBy={entry.postedBy}
-                            amount={entry.amount}
-                            debitAccount={entry.debitAccount}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        
-        {data && data.totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1 || isLoading}
-            >
-              Previous
-            </Button>
-            <div className="text-sm text-muted-foreground">
-              Page {page} of {data.totalPages}
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
-              disabled={page === data.totalPages || isLoading}
-            >
-              Next
-            </Button>
-          </div>
-        )}
-      </Card>
-    </div>
   );
 }

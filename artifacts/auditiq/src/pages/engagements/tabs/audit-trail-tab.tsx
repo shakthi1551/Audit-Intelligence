@@ -1,204 +1,205 @@
 import { useListAuditLogs, getListAuditLogsQueryKey } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
-import { History, User, ArrowRightLeft, ChevronDown, ChevronRight, ShieldCheck, ShieldAlert, Shield } from "lucide-react";
-import { useState } from "react";
+import { History, Shield, AlertTriangle, FileText, User } from "lucide-react";
+import { motion } from "framer-motion";
+import { format, formatDistanceToNow } from "date-fns";
 
-interface AuditMeta {
-  feedbackCategory?: string;
-  confidenceLevel?: string;
-  newRiskLevel?: string;
-  previousRiskLevel?: string;
-  auditorName?: string;
-  reason?: string;
+interface AuditTrailTabProps {
+  engagementId: number;
 }
 
-const FEEDBACK_LABELS: Record<string, string> = {
-  CLERICAL_ERROR: "Clerical Error",
-  POLICY_EXCEPTION: "Policy Exception",
-  BUSINESS_JUSTIFICATION: "Business Justification",
-  SYSTEM_ERROR: "System Error",
-  OTHER: "Other",
-};
-
-const CONFIDENCE_COLORS: Record<string, string> = {
-  HIGH: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  MEDIUM: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  LOW: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-};
-
-const RISK_COLORS: Record<string, string> = {
-  HIGH: "text-destructive font-semibold",
-  MEDIUM: "text-amber-600 font-semibold",
-  LOW: "text-green-600 font-semibold",
-};
-
-function RiskChip({ level }: { level?: string }) {
-  if (!level) return <span className="text-muted-foreground">—</span>;
-  return <span className={RISK_COLORS[level] ?? ""}>{level}</span>;
-}
-
-function AuditLogEntry({ log }: { log: any }) {
-  const [expanded, setExpanded] = useState(false);
-  const meta = (log.metadata ?? {}) as AuditMeta;
-  const isOverride = log.action === "RISK_OVERRIDE";
-
-  return (
-    <div className="border rounded-lg overflow-hidden">
-      <button
-        className="w-full flex items-start gap-3 p-4 text-left hover:bg-muted/30 transition-colors"
-        onClick={() => setExpanded(e => !e)}
-      >
-        <div className="mt-0.5 shrink-0">
-          {isOverride ? (
-            <Shield className="h-4 w-4 text-amber-500" />
-          ) : (
-            <History className="h-4 w-4 text-muted-foreground" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium">{log.action.replace(/_/g, " ")}</span>
-            {isOverride && meta.previousRiskLevel && meta.newRiskLevel && (
-              <span className="text-xs flex items-center gap-1 text-muted-foreground">
-                <RiskChip level={meta.previousRiskLevel} />
-                <ArrowRightLeft className="h-3 w-3 mx-0.5" />
-                <RiskChip level={meta.newRiskLevel} />
-              </span>
-            )}
-            {meta.feedbackCategory && (
-              <Badge variant="outline" className="text-[10px] h-5 px-1.5">
-                {FEEDBACK_LABELS[meta.feedbackCategory] ?? meta.feedbackCategory}
-              </Badge>
-            )}
-            {meta.confidenceLevel && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${CONFIDENCE_COLORS[meta.confidenceLevel] ?? ""}`}>
-                {meta.confidenceLevel} confidence
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <User className="h-3 w-3" />
-              {meta.auditorName ?? log.userId ?? "System"}
-            </span>
-            <span>Entry #{log.entityId}</span>
-            <span>{format(new Date(log.createdAt), "dd MMM yyyy, HH:mm")}</span>
-          </div>
-        </div>
-        <div className="shrink-0 mt-1">
-          {expanded
-            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t bg-muted/20 px-4 py-3 text-sm space-y-2">
-          {log.details && (
-            <div>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Details</span>
-              <p className="mt-1 text-foreground/90">{log.details}</p>
-            </div>
-          )}
-          {meta.reason && meta.reason !== log.details && (
-            <div>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Auditor Rationale</span>
-              <p className="mt-1 text-foreground/90 italic">"{meta.reason}"</p>
-            </div>
-          )}
-          {log.ipAddress && (
-            <p className="text-xs text-muted-foreground">IP: {log.ipAddress}</p>
-          )}
-          <div className="text-[10px] text-muted-foreground font-mono">
-            Log ID: {log.id} · Entity: {log.entityType} #{log.entityId}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function AuditTrailTab({ engagementId }: { engagementId: number }) {
-  const params = { engagementId, page: 1 };
-  const { data: logs, isLoading } = useListAuditLogs(
-    params,
-    { query: { enabled: !!engagementId, queryKey: getListAuditLogsQueryKey(params) } },
-  );
-
-  const overrideCount = logs?.filter((l: any) => l.action === "RISK_OVERRIDE").length ?? 0;
-  const highConfidence = logs?.filter((l: any) => (l.metadata as AuditMeta)?.confidenceLevel === "HIGH").length ?? 0;
+export default function AuditTrailTab({ engagementId }: AuditTrailTabProps) {
+  const { data: logs, isLoading } = useListAuditLogs({ engagementId }, {
+    query: { enabled: !!engagementId, queryKey: getListAuditLogsQueryKey({ engagementId }) },
+  });
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        {[1,2,3].map(i => (
-          <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
-        ))}
+      <div className="flex items-center justify-center py-24">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading audit trail...</p>
+        </div>
       </div>
     );
   }
 
+  if (!logs || logs.length === 0) {
+    return (
+      <div className="text-center py-24">
+        <div className="mx-auto w-fit p-6 rounded-2xl bg-muted/50 mb-4">
+          <History className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <p className="text-lg font-semibold text-foreground mb-2">No audit events yet</p>
+        <p className="text-sm text-muted-foreground">All actions and overrides will be logged here</p>
+      </div>
+    );
+  }
+
+  const getActionIcon = (action: string, entityType: string) => {
+    if (action.includes("override") || action.includes("OVERRIDE")) return Shield;
+    if (action.includes("upload") || action.includes("UPLOAD")) return FileText;
+    if (action.includes("create") || action.includes("CREATE")) return FileText;
+    return AlertTriangle;
+  };
+
+  const getActionColor = (action: string) => {
+    if (action.includes("override") || action.includes("OVERRIDE")) return {
+      dot: "bg-chart-3 border-chart-3",
+      icon: "text-chart-3",
+      card: "border-chart-3/30 bg-chart-3/5",
+    };
+    if (action.includes("upload") || action.includes("UPLOAD")) return {
+      dot: "bg-primary border-primary",
+      icon: "text-primary",
+      card: "border-primary/30 bg-primary/5",
+    };
+    return {
+      dot: "bg-accent border-accent",
+      icon: "text-accent",
+      card: "border-accent/30 bg-accent/5",
+    };
+  };
+
   return (
     <div className="space-y-6">
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{logs?.length ?? 0}</p>
-            <p className="text-xs text-muted-foreground mt-1">Total Events</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-amber-600">{overrideCount}</p>
-            <p className="text-xs text-muted-foreground mt-1">Auditor Overrides</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{highConfidence}</p>
-            <p className="text-xs text-muted-foreground mt-1">High-Confidence Decisions</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-3"
+      >
+        <History className="h-6 w-6 text-primary" />
+        <h3 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+          Audit Trail
+        </h3>
+      </motion.div>
 
-      {/* Governance note */}
-      <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
-        <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-        <p className="text-blue-800 dark:text-blue-300">
-          All auditor overrides are permanently logged with rationale, feedback category, confidence level,
-          previous risk state, IP address, and auditor identity in accordance with ISA 230.
-        </p>
-      </div>
+      {/* Timeline */}
+      <div className="relative">
+        {/* Vertical line */}
+        <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-primary via-border to-transparent" />
 
-      {/* Log entries */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <History className="h-4 w-4" />
-            Full Audit Trail
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!logs || logs.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground text-sm">
-              <History className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              <p>No audit events yet for this engagement.</p>
-            </div>
-          ) : (
-            <ScrollArea className="h-[520px]">
-              <div className="space-y-2 pr-2">
-                {logs.map((log: any) => (
-                  <AuditLogEntry key={log.id} log={log} />
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+        <div className="space-y-6">
+          {logs.map((log, index) => {
+            const ActionIcon = getActionIcon(log.action, log.entityType);
+            const colors = getActionColor(log.action);
+            const isOverride = log.action.includes("override") || log.action.includes("OVERRIDE");
+
+            return (
+              <motion.div
+                key={log.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="relative pl-16"
+              >
+                {/* Timeline dot */}
+                <div className={`absolute left-3 top-3 w-6 h-6 rounded-full border-4 ${colors.dot} z-10`}>
+                  <div className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ backgroundColor: colors.dot.split(" ")[0].replace("bg-", "") }} />
+                </div>
+
+                {/* Event card */}
+                <div className={`bg-card border rounded-xl p-6 ${colors.card}`}>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg bg-muted/50 border border-border`}>
+                        <ActionIcon className={`h-5 w-5 ${colors.icon}`} />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-bold text-foreground">{log.action}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {log.entityType} {log.entityId ? `#${log.entityId}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-foreground font-medium">
+                        {format(new Date(log.createdAt), "MMM dd, yyyy")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(log.createdAt), "HH:mm:ss")}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Details */}
+                  {log.details && (
+                    <div className="bg-muted/30 border border-border rounded-lg p-4 mb-4">
+                      <p className="text-sm text-foreground">{log.details}</p>
+                    </div>
+                  )}
+
+                  {/* Override-specific info */}
+                  {isOverride && log.metadata && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
+                      {log.previousValue && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Previous Risk</p>
+                          <span className={`
+                            inline-block px-2 py-1 rounded text-xs font-semibold
+                            ${log.previousValue === "HIGH" ? "bg-destructive/20 text-destructive" : ""}
+                            ${log.previousValue === "MEDIUM" ? "bg-chart-3/20 text-chart-3" : ""}
+                            ${log.previousValue === "LOW" ? "bg-chart-5/20 text-chart-5" : ""}
+                          `}>
+                            {log.previousValue}
+                          </span>
+                        </div>
+                      )}
+                      {Boolean(log.metadata.newRiskLevel) && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">New Risk</p>
+                          <span className={`
+                            inline-block px-2 py-1 rounded text-xs font-semibold
+                            ${String(log.metadata.newRiskLevel) === "HIGH" ? "bg-destructive/20 text-destructive" : ""}
+                            ${String(log.metadata.newRiskLevel) === "MEDIUM" ? "bg-chart-3/20 text-chart-3" : ""}
+                            ${String(log.metadata.newRiskLevel) === "LOW" ? "bg-chart-5/20 text-chart-5" : ""}
+                          `}>
+                            {String(log.metadata.newRiskLevel)}
+                          </span>
+                        </div>
+                      )}
+                      {Boolean(log.metadata.feedbackCategory) && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Category</p>
+                          <p className="text-sm font-medium text-foreground">
+                            {String(log.metadata.feedbackCategory).replace(/_/g, " ")}
+                          </p>
+                        </div>
+                      )}
+                      {Boolean(log.metadata.confidenceLevel) && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Confidence</p>
+                          <p className="text-sm font-medium text-foreground">
+                            {String(log.metadata.confidenceLevel)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Footer info */}
+                  <div className="flex items-center gap-6 pt-4 border-t border-border text-xs text-muted-foreground">
+                    {log.userId && (
+                      <div className="flex items-center gap-1.5">
+                        <User className="h-3 w-3" />
+                        <span>User ID: {log.userId}</span>
+                      </div>
+                    )}
+                    {log.ipAddress && (
+                      <div className="flex items-center gap-1.5">
+                        <span>IP: {log.ipAddress}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

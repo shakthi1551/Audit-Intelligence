@@ -1,146 +1,192 @@
 import { useGetUserHeatmap, getGetUserHeatmapQueryKey, useGetTimeHeatmap, getGetTimeHeatmapQueryKey } from "@workspace/api-client-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { motion } from "framer-motion";
+import { Users, Clock } from "lucide-react";
 
-function riskColor(avgScore: number) {
-  if (avgScore >= 60) return "#ef4444";
-  if (avgScore >= 30) return "#f59e0b";
-  return "#10b981";
+interface HeatmapsTabProps {
+  engagementId: number;
 }
 
-export default function HeatmapsTab({ engagementId }: { engagementId: number }) {
-  const { data: userHeatmap, isLoading: isUserLoading } = useGetUserHeatmap(engagementId, {
-    query: { enabled: !!engagementId, queryKey: getGetUserHeatmapQueryKey(engagementId) }
-  });
-  
-  const { data: timeHeatmap, isLoading: isTimeLoading } = useGetTimeHeatmap(engagementId, {
-    query: { enabled: !!engagementId, queryKey: getGetTimeHeatmapQueryKey(engagementId) }
+export default function HeatmapsTab({ engagementId }: HeatmapsTabProps) {
+  const { data: userHeatmap, isLoading: loadingUsers } = useGetUserHeatmap(engagementId, {
+    query: { enabled: !!engagementId, queryKey: getGetUserHeatmapQueryKey(engagementId) },
   });
 
-  if (isUserLoading || isTimeLoading) {
-    return <div className="animate-pulse space-y-6">
-      <div className="h-96 bg-muted rounded"></div>
-      <div className="h-96 bg-muted rounded"></div>
-    </div>;
+  const { data: timeHeatmap, isLoading: loadingTime } = useGetTimeHeatmap(engagementId, {
+    query: { enabled: !!engagementId, queryKey: getGetTimeHeatmapQueryKey(engagementId) },
+  });
+
+  if (loadingUsers || loadingTime) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading heatmaps...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Format data for time heatmap chart
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const formattedTimeData = timeHeatmap?.map(row => ({
-    name: `${days[row.dayOfWeek]} ${row.hour}:00`,
-    entryCount: row.entryCount,
-    riskScore: row.avgRiskScore,
+  const userChartData = userHeatmap?.map((item) => ({
+    user: item.user,
+    avgRiskScore: item.avgRiskScore,
+    highRiskEntries: item.highRiskEntries,
+    totalEntries: item.totalEntries,
   })) || [];
 
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+
+  const getColorIntensity = (score: number) => {
+    if (score >= 70) return "hsl(var(--destructive))";
+    if (score >= 40) return "hsl(var(--chart-3))";
+    return "hsl(var(--chart-5))";
+  };
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>User Risk Concentration</CardTitle>
-          <CardDescription>Users ranked by their volume of high-risk entries and average risk score.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80 mb-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={userHeatmap?.slice(0, 10) || []}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                barCategoryGap="20%"
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" allowDecimals={false} />
-                <YAxis dataKey="user" type="category" width={120} tick={{ fontSize: 12 }} />
-                <Tooltip
-                  cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff' }}
-                  formatter={(value: any, name: any, item: any) => {
-                    if (name === "Total Entries") {
-                      const avg = item?.payload?.avgRiskScore ?? 0;
-                      return [`${value} (avg score ${avg.toFixed(1)})`, name];
-                    }
-                    return [value, name];
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="totalEntries" name="Total Entries" radius={[0, 4, 4, 0]}>
-                  {(userHeatmap?.slice(0, 10) || []).map((row, i) => (
-                    <Cell key={i} fill={riskColor(row.avgRiskScore)} />
-                  ))}
-                </Bar>
-                <Bar dataKey="highRiskEntries" name="High Risk Entries" fill="#7f1d1d" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+    <div className="space-y-8">
+      {/* User heatmap */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-card border border-card-border rounded-xl p-6"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <Users className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+            User Risk Heatmap
+          </h3>
+        </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead className="text-right">Total Entries</TableHead>
-                <TableHead className="text-right">High Risk</TableHead>
-                <TableHead className="text-right">Avg Score</TableHead>
-                <TableHead className="text-right">Total Amount ($)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {userHeatmap?.map((row, i) => (
-                <TableRow key={i}>
-                  <TableCell className="font-medium">{row.user}</TableCell>
-                  <TableCell className="text-right">{row.totalEntries.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-bold text-destructive">{row.highRiskEntries.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{row.avgRiskScore.toFixed(1)}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {new Intl.NumberFormat('en-US').format(row.totalAmount)}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!userHeatmap?.length && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">No user data available</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        {userChartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={userChartData} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis
+                type="number"
+                stroke="hsl(var(--muted-foreground))"
+                style={{ fontSize: "12px" }}
+              />
+              <YAxis
+                dataKey="user"
+                type="category"
+                width={120}
+                stroke="hsl(var(--muted-foreground))"
+                style={{ fontSize: "12px" }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "0.5rem",
+                  color: "hsl(var(--foreground))",
+                }}
+                formatter={(value: any, name: string) => {
+                  if (name === "avgRiskScore") return [value.toFixed(1), "Avg Risk Score"];
+                  if (name === "highRiskEntries") return [value, "High Risk Entries"];
+                  if (name === "totalEntries") return [value, "Total Entries"];
+                  return [value, name];
+                }}
+              />
+              <Bar dataKey="avgRiskScore" radius={[0, 4, 4, 0]}>
+                {userChartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={getColorIntensity(entry.avgRiskScore)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No user data available</p>
+          </div>
+        )}
+      </motion.div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Posting Time Analysis</CardTitle>
-          <CardDescription>Volume of entries by day of week and hour. Spikes indicate unusual posting activity.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={formattedTimeData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  angle={-45} 
-                  textAnchor="end"
-                  tick={{ fontSize: 10 }}
-                  interval={0}
-                  height={60}
-                />
-                <YAxis />
-                <Tooltip 
-                  cursor={{fill: 'var(--muted)'}}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)' }}
-                />
-                <Bar dataKey="entryCount" name="Entry Count" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* Time heatmap */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-card border border-card-border rounded-xl p-6"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <Clock className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+            Time-Based Activity Heatmap
+          </h3>
+        </div>
+
+        {timeHeatmap && timeHeatmap.length > 0 ? (
+          <div className="overflow-x-auto">
+            <div className="min-w-max">
+              <div className="grid grid-cols-25 gap-1">
+                {/* Header row */}
+                <div className="col-span-1" />
+                {hours.map((hour) => (
+                  <div key={hour} className="text-center text-xs text-muted-foreground py-1">
+                    {hour}
+                  </div>
+                ))}
+
+                {/* Heatmap rows */}
+                {days.map((day, dayIndex) => (
+                  <div key={day} className="contents">
+                    <div className="text-xs text-muted-foreground py-1 pr-2 text-right">
+                      {day}
+                    </div>
+                    {hours.map((hour) => {
+                      const cell = timeHeatmap.find(
+                        (item) => item.dayOfWeek === dayIndex && item.hour === hour
+                      );
+                      const intensity = cell?.avgRiskScore || 0;
+                      const count = cell?.entryCount || 0;
+
+                      return (
+                        <div
+                          key={`${dayIndex}-${hour}`}
+                          className="aspect-square rounded border border-border relative group cursor-pointer transition-transform hover:scale-110"
+                          style={{
+                            backgroundColor: count > 0 ? getColorIntensity(intensity) : "hsl(var(--muted))",
+                            opacity: count > 0 ? Math.min(1, 0.3 + (count / 100) * 0.7) : 0.3,
+                          }}
+                          title={`${day} ${hour}:00 - ${count} entries, avg risk ${intensity.toFixed(1)}`}
+                        >
+                          {count > 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-card/90 rounded text-xs font-bold text-foreground">
+                              {count}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center justify-center gap-6 mt-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "hsl(var(--chart-5))" }} />
+                  <span className="text-muted-foreground">Low Risk</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "hsl(var(--chart-3))" }} />
+                  <span className="text-muted-foreground">Medium Risk</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: "hsl(var(--destructive))" }} />
+                  <span className="text-muted-foreground">High Risk</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground mt-4 italic border-l-2 border-primary pl-3 py-1 bg-muted/30">
-            <strong>Note:</strong> Standard business hours (8 AM - 6 PM, Mon-Fri) typically show the highest volume. Significant volume outside these hours increases risk scores.
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No time data available</p>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </motion.div>
     </div>
   );
 }
