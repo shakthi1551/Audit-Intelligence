@@ -1,323 +1,285 @@
-import { useGetDashboardSummary, getGetDashboardSummaryQueryKey, useGetRiskDistribution, getGetRiskDistributionQueryKey, useGetBeneishAnalysis, getGetBeneishAnalysisQueryKey } from "@workspace/api-client-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
-import { AlertTriangle, AlertCircle, CheckCircle2, FileText, Database, TrendingUp, Info } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { format } from "date-fns";
-import type { BeneishAnalysis, BeneishIndex } from "@workspace/api-client-react";
+import {
+  useGetDashboardSummary,
+  getGetDashboardSummaryQueryKey,
+  useGetRiskDistribution,
+  getGetRiskDistributionQueryKey,
+} from "@workspace/api-client-react";
+import { AlertTriangle, TrendingUp, Users, Clock, FileText } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { motion } from "framer-motion";
 
-function MScoreGauge({ mScore }: { mScore: number }) {
-  const min = -4, max = 1;
-  const pct = Math.max(0, Math.min(100, ((mScore - min) / (max - min)) * 100));
-  const color = mScore > -1.78 ? "#ef4444" : mScore > -2.22 ? "#f59e0b" : "#22c55e";
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>-4 (Safe)</span>
-        <span className="font-mono font-bold" style={{ color }}>{mScore.toFixed(2)}</span>
-        <span>+1 (Risk)</span>
-      </div>
-      <div className="relative h-3 bg-muted rounded-full overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-green-500 via-amber-400 to-red-500 opacity-20 rounded-full" />
-        <div
-          className="absolute top-0 bottom-0 w-2 rounded-full -translate-x-1/2 transition-all duration-700"
-          style={{ left: `${pct}%`, backgroundColor: color }}
-        />
-        <div className="absolute inset-y-0 left-[37.8%] w-px bg-amber-400 opacity-60" title="-2.22" />
-        <div className="absolute inset-y-0 left-[51.1%] w-px bg-red-400 opacity-80" title="-1.78" />
-      </div>
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span />
-        <span className="text-amber-500">–2.22</span>
-        <span className="text-red-500 ml-4">–1.78</span>
-        <span />
-      </div>
-    </div>
-  );
+interface OverviewTabProps {
+  engagementId: number;
 }
 
-function BeneishWidget({ data }: { data: BeneishAnalysis }) {
-  const verdictColor = data.verdictSeverity === "HIGH"
-    ? "bg-destructive text-destructive-foreground"
-    : data.verdictSeverity === "MEDIUM"
-    ? "bg-amber-500 text-white"
-    : "bg-green-500 text-white";
+const COLORS = {
+  high: "hsl(var(--destructive))",
+  medium: "hsl(var(--chart-3))",
+  low: "hsl(var(--chart-5))",
+};
 
-  const radarData = data.indices.map((idx: BeneishIndex) => ({
-    subject: idx.variable,
-    value: Math.min(parseFloat((idx.value / idx.threshold * 100).toFixed(1)), 200),
-    threshold: 100,
-    fullLabel: idx.label,
-  }));
-
-  return (
-    <Card className="col-span-7">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Beneish M-Score
-            </CardTitle>
-            <CardDescription>Earnings manipulation probability model (Beneish 1999) — proxy indices derived from journal entry patterns</CardDescription>
-          </div>
-          <Badge className={`${verdictColor} text-sm px-3 py-1`}>
-            {data.verdict}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <MScoreGauge mScore={data.mScore} />
-
-        <p className="text-sm text-muted-foreground border-l-2 border-primary pl-3 py-1 bg-primary/5 rounded-r">
-          {data.summary}
-        </p>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="text-sm font-semibold mb-3">Index Values vs Thresholds</h4>
-            <div className="space-y-2">
-              {data.indices.map((idx: BeneishIndex) => (
-                <div key={idx.variable} className="space-y-0.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5">
-                      {idx.flagged && <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />}
-                      <span className={idx.flagged ? "font-semibold text-foreground" : "text-muted-foreground"}>
-                        {idx.variable}
-                      </span>
-                      <UITooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-[240px] text-xs">
-                          <p className="font-medium mb-1">{idx.label}</p>
-                          <p>{idx.description}</p>
-                        </TooltipContent>
-                      </UITooltip>
-                    </div>
-                    <span className={`font-mono ${idx.flagged ? "text-destructive font-bold" : "text-muted-foreground"}`}>
-                      {idx.value.toFixed(3)} / {idx.threshold}
-                    </span>
-                  </div>
-                  <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${idx.flagged ? "bg-destructive" : "bg-green-500"}`}
-                      style={{ width: `${Math.min((idx.value / idx.threshold) * 100, 100)}%` }}
-                    />
-                    {idx.value > idx.threshold && (
-                      <div
-                        className="absolute top-0 bottom-0 bg-destructive/40 rounded-full"
-                        style={{
-                          left: "100%",
-                          width: `${Math.min(((idx.value - idx.threshold) / idx.threshold) * 100, 50)}%`
-                        }}
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Radar Profile</h4>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarData} margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
-                  <PolarGrid stroke="var(--border)" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
-                  <PolarRadiusAxis domain={[0, 150]} tick={false} axisLine={false} />
-                  <Radar name="Score % of threshold" dataKey="value" stroke="#ef4444" fill="#ef4444" fillOpacity={0.15} />
-                  <Radar name="Threshold (100%)" dataKey="threshold" stroke="#94a3b8" fill="transparent" strokeDasharray="4 2" />
-                  <Tooltip
-                    formatter={(val: number, name: string) =>
-                      name === "Threshold (100%)" ? null : [`${val.toFixed(0)}% of threshold`, "Score"]
-                    }
-                    contentStyle={{ fontSize: 12, borderRadius: 6 }}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-xs text-muted-foreground text-center mt-1">Bars beyond 100% indicate a flagged index</p>
-          </div>
-        </div>
-
-        <div className="text-xs text-muted-foreground border-t pt-3 italic">
-          <strong>Note:</strong> Beneish indices are computed as proxies from journal entry account patterns, not audited financial statements. Use in conjunction with ISA 240 risk assessment — not as a standalone conclusion.
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function OverviewTab({ engagementId }: { engagementId: number }) {
-  const { data: summary, isLoading: isSummaryLoading } = useGetDashboardSummary(engagementId, {
-    query: { enabled: !!engagementId, queryKey: getGetDashboardSummaryQueryKey(engagementId) }
+export default function OverviewTab({ engagementId }: OverviewTabProps) {
+  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary(engagementId, {
+    query: { enabled: !!engagementId, queryKey: getGetDashboardSummaryQueryKey(engagementId) },
   });
 
-  const { data: riskDist, isLoading: isRiskDistLoading } = useGetRiskDistribution(engagementId, {
-    query: { enabled: !!engagementId, queryKey: getGetRiskDistributionQueryKey(engagementId) }
+  const { data: distribution, isLoading: loadingDist } = useGetRiskDistribution(engagementId, {
+    query: { enabled: !!engagementId, queryKey: getGetRiskDistributionQueryKey(engagementId) },
   });
 
-  const { data: beneish } = useGetBeneishAnalysis(engagementId, {
-    query: { enabled: !!engagementId, queryKey: getGetBeneishAnalysisQueryKey(engagementId) }
-  });
-
-  if (isSummaryLoading || isRiskDistLoading) {
-    return <div className="animate-pulse space-y-4">
-      <div className="grid gap-4 md:grid-cols-4">
-        {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-muted rounded"></div>)}
+  if (loadingSummary || loadingDist) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading overview...</p>
+        </div>
       </div>
-      <div className="h-96 bg-muted rounded"></div>
-    </div>;
+    );
   }
 
-  if (!summary || !riskDist) {
+  if (!summary || !distribution) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center h-64 space-y-4">
-          <Database className="h-12 w-12 text-muted-foreground" />
-          <div className="text-xl font-medium">No Data Available</div>
-          <p className="text-muted-foreground">Upload journal entries to see the overview.</p>
-        </CardContent>
-      </Card>
+      <div className="text-center py-24">
+        <p className="text-muted-foreground">No data available</p>
+      </div>
     );
   }
 
   const pieData = [
-    { name: "High Risk", value: riskDist.high, color: "#ef4444" },
-    { name: "Medium Risk", value: riskDist.medium, color: "#f59e0b" },
-    { name: "Low Risk", value: riskDist.low, color: "#22c55e" },
+    { name: "HIGH", value: distribution.high, color: COLORS.high },
+    { name: "MEDIUM", value: distribution.medium, color: COLORS.medium },
+    { name: "LOW", value: distribution.low, color: COLORS.low },
   ];
 
+  const scoreBreakdown = distribution.scoreBreakdown?.map((item) => ({
+    range: item.range,
+    count: item.count,
+  })) || [];
+
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Entries</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalEntries.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">High Risk</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{summary.highRiskCount.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{summary.highRiskPct}% of total</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Medium Risk</CardTitle>
-            <AlertCircle className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-500">{summary.mediumRiskCount.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{summary.mediumRiskPct}% of total</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Risk</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">{summary.lowRiskCount.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{summary.lowRiskPct}% of total</p>
-          </CardContent>
-        </Card>
+    <div className="space-y-8">
+      {/* Key metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-card border border-card-border rounded-xl p-6 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+              <p className="text-sm text-muted-foreground">Total Entries</p>
+            </div>
+            <p className="text-4xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+              {summary.totalEntries.toLocaleString()}
+            </p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-card border border-destructive/30 rounded-xl p-6 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-destructive/10 rounded-full blur-2xl" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <p className="text-sm text-muted-foreground">HIGH Risk</p>
+            </div>
+            <p className="text-4xl font-bold text-destructive" style={{ fontFamily: "var(--font-display)" }}>
+              {summary.highRiskCount}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {summary.highRiskPct?.toFixed(1)}% of total
+            </p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-card border border-card-border rounded-xl p-6 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-accent/10 rounded-full blur-2xl" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-accent/10 border border-accent/20">
+                <TrendingUp className="h-5 w-5 text-accent" />
+              </div>
+              <p className="text-sm text-muted-foreground">Avg Risk Score</p>
+            </div>
+            <p className="text-4xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+              {summary.avgRiskScore.toFixed(1)}
+            </p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-card border border-card-border rounded-xl p-6 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-chart-3/10 rounded-full blur-2xl" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 rounded-lg bg-chart-3/10 border border-chart-3/20">
+                <Clock className="h-5 w-5 text-chart-3" />
+              </div>
+              <p className="text-sm text-muted-foreground">After Hours</p>
+            </div>
+            <p className="text-4xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+              {summary.afterHoursCount || 0}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              +{summary.weekendCount || 0} weekend
+            </p>
+          </div>
+        </motion.div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Risk Distribution</CardTitle>
-            <CardDescription>Breakdown of journal entries by risk level</CardDescription>
-          </CardHeader>
-          <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={80}
-                  outerRadius={120}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value: number) => [value.toLocaleString(), 'Entries']}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)' }}
-                />
-                <Legend verticalAlign="bottom" height={36} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Key Risk Indicators</CardTitle>
-            <CardDescription>Notable patterns requiring attention</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center border-b pb-2">
-                <div>
-                  <div className="font-medium">After-Hours Posting</div>
-                  <div className="text-sm text-muted-foreground">Entries posted outside 8 AM - 6 PM</div>
-                </div>
-                <div className="font-bold">{summary.afterHoursCount?.toLocaleString() || 0}</div>
-              </div>
-              <div className="flex justify-between items-center border-b pb-2">
-                <div>
-                  <div className="font-medium">Weekend Posting</div>
-                  <div className="text-sm text-muted-foreground">Entries posted on Sat/Sun</div>
-                </div>
-                <div className="font-bold">{summary.weekendCount?.toLocaleString() || 0}</div>
-              </div>
-              <div className="flex justify-between items-center border-b pb-2">
-                <div>
-                  <div className="font-medium">Duplicate Suspects</div>
-                  <div className="text-sm text-muted-foreground">Identical amounts by same user</div>
-                </div>
-                <div className="font-bold">{summary.duplicateSuspects?.toLocaleString() || 0}</div>
-              </div>
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="font-medium">AI Explanations</div>
-                  <div className="text-sm text-muted-foreground">Claude analyzed entries</div>
-                </div>
-                <div className="font-bold">{summary.aiExplanationCount?.toLocaleString() || 0}</div>
-              </div>
-            </div>
-            
-            <div className="mt-6 text-xs text-muted-foreground border-l-2 border-amber-500 pl-3 py-1 bg-amber-500/5 rounded-r">
-              <strong>Disclaimer:</strong> This is a risk indicator, not an audit conclusion. Auditor judgment is required to determine material misstatement.
-            </div>
-          </CardContent>
-        </Card>
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Risk distribution donut */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="bg-card border border-card-border rounded-xl p-6"
+        >
+          <h3 className="text-lg font-bold text-foreground mb-6" style={{ fontFamily: "var(--font-display)" }}>
+            Risk Distribution
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={100}
+                paddingAngle={2}
+                dataKey="value"
+                animationBegin={0}
+                animationDuration={800}
+              >
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "0.5rem",
+                  color: "hsl(var(--foreground))",
+                }}
+              />
+              <Legend
+                verticalAlign="bottom"
+                height={36}
+                iconType="circle"
+                formatter={(value) => <span className="text-foreground">{value}</span>}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Score breakdown */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="bg-card border border-card-border rounded-xl p-6"
+        >
+          <h3 className="text-lg font-bold text-foreground mb-6" style={{ fontFamily: "var(--font-display)" }}>
+            Score Distribution
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={scoreBreakdown}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis
+                dataKey="range"
+                stroke="hsl(var(--muted-foreground))"
+                style={{ fontSize: "12px" }}
+              />
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
+                style={{ fontSize: "12px" }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "0.5rem",
+                  color: "hsl(var(--foreground))",
+                }}
+              />
+              <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </motion.div>
       </div>
 
-      {beneish && (
-        <div className="grid gap-4 lg:grid-cols-7">
-          <BeneishWidget data={beneish} />
-        </div>
+      {/* Top risky users */}
+      {summary.topRiskyUsers && summary.topRiskyUsers.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="bg-card border border-card-border rounded-xl p-6"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <Users className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+              Top Risky Users
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {summary.topRiskyUsers.map((user, index) => (
+              <div
+                key={user.user}
+                className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border hover:border-primary/30 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">{user.user}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {user.entryCount} entries • ${user.totalAmount.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">HIGH Risk</p>
+                    <p className="text-xl font-bold text-destructive" style={{ fontFamily: "var(--font-display)" }}>
+                      {user.highRiskCount}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Avg Score</p>
+                    <p className="text-xl font-bold text-foreground" style={{ fontFamily: "var(--font-display)" }}>
+                      {user.avgScore.toFixed(1)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       )}
     </div>
   );
