@@ -77,6 +77,9 @@ export interface Engagement {
   name: string;
   clientName: string;
   period: string;
+  description?: string;
+  overallMateriality?: number;
+  performanceMateriality?: number;
   status: EngagementStatus;
   totalEntries?: number;
   highRiskCount?: number;
@@ -93,12 +96,41 @@ export interface CreateEngagementBody {
   description?: string;
 }
 
+export interface LedgerReconciliation {
+  sourceDebitTotal: number;
+  sourceCreditTotal: number;
+  imbalance: number;
+  isBalanced: boolean;
+  duplicateReferenceCount: number;
+  missingReferenceCount: number;
+  warningCount: number;
+  warnings: string[];
+}
+
 export interface UploadResponse {
   message: string;
   engagementId: number;
   totalRows: number;
   processedRows: number;
   errors?: string[];
+  reconciliation?: LedgerReconciliation;
+}
+
+export interface UpdateEngagementSettingsBody {
+  /** @minimum 0 */
+  overallMateriality: number;
+  /** @minimum 0 */
+  performanceMateriality: number;
+}
+
+export type CalibrationSummaryWeights = { [key: string]: number };
+
+export interface CalibrationSummary {
+  labeledOverrides: number;
+  highConfidenceOverrides: number;
+  agreementRate: number;
+  recommendation: string;
+  weights: CalibrationSummaryWeights;
 }
 
 export type RiskScoreRiskLevel =
@@ -185,6 +217,9 @@ export interface AiExplanation {
   explanation: string;
   triggers: string[];
   isaReference?: string;
+  forensicRiskHypothesis?: string;
+  isa240Mapping?: string;
+  recommendedSubstantiveAction?: string;
   generatedAt: string;
   modelUsed?: string;
 }

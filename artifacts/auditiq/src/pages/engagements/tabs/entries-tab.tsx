@@ -404,7 +404,11 @@ function ExpandedEntryPanel({
           </div>
         ) : explanation ? (
           <div className="space-y-3">
-            <p className="text-sm text-foreground leading-relaxed">{explanation.explanation}</p>
+            <div className="space-y-4">
+              <div><p className="text-xs font-bold uppercase tracking-wider text-primary mb-1">1. Forensic Risk Hypothesis</p><p className="text-sm text-foreground leading-relaxed">{explanation.forensicRiskHypothesis || explanation.explanation}</p></div>
+              <div><p className="text-xs font-bold uppercase tracking-wider text-accent mb-1">2. ISA 240 Mapping</p><p className="text-sm text-foreground leading-relaxed">{explanation.isa240Mapping || explanation.isaReference || "ISA 240 — validate the applicable paragraph against the firm's licensed standard."}</p></div>
+              <div><p className="text-xs font-bold uppercase tracking-wider text-chart-3 mb-1">3. Recommended Substantive Action</p><p className="text-sm text-foreground leading-relaxed">{explanation.recommendedSubstantiveAction || "Inspect the supporting document and make a documented management inquiry."}</p></div>
+            </div>
             {explanation.triggers && explanation.triggers.length > 0 && (
               <div>
                 <p className="text-xs text-muted-foreground mb-2">Key Triggers:</p>

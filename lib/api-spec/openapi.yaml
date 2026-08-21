@@ -191,6 +191,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /engagements/{id}/settings:
+    patch:
+      operationId: updateEngagementSettings
+      tags: [engagements]
+      summary: Update engagement materiality settings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEngagementSettingsBody"
+      responses:
+        "200":
+          description: Updated engagement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Engagement"
+
   # Journal Entries (Upload)
   /engagements/{id}/upload:
     post:
@@ -363,6 +388,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
+
+  /engagements/{id}/calibration:
+    get:
+      operationId: getCalibrationSummary
+      tags: [engagements]
+      summary: Get heuristic calibration summary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Calibration summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationSummary"
 
   /engagements/{id}/heatmap/users:
     get:
@@ -787,6 +831,12 @@ components:
           type: string
         period:
           type: string
+        description:
+          type: string
+        overallMateriality:
+          type: number
+        performanceMateriality:
+          type: number
         status:
           type: string
           enum: [ACTIVE, COMPLETED, ARCHIVED]
@@ -835,7 +885,60 @@ components:
           type: array
           items:
             type: string
+        reconciliation:
+          $ref: "#/components/schemas/LedgerReconciliation"
       required: [message, engagementId, totalRows, processedRows]
+
+    LedgerReconciliation:
+      type: object
+      properties:
+        sourceDebitTotal:
+          type: number
+        sourceCreditTotal:
+          type: number
+        imbalance:
+          type: number
+        isBalanced:
+          type: boolean
+        duplicateReferenceCount:
+          type: integer
+        missingReferenceCount:
+          type: integer
+        warningCount:
+          type: integer
+        warnings:
+          type: array
+          items:
+            type: string
+      required: [sourceDebitTotal, sourceCreditTotal, imbalance, isBalanced, duplicateReferenceCount, missingReferenceCount, warningCount, warnings]
+
+    UpdateEngagementSettingsBody:
+      type: object
+      properties:
+        overallMateriality:
+          type: number
+          minimum: 0
+        performanceMateriality:
+          type: number
+          minimum: 0
+      required: [overallMateriality, performanceMateriality]
+
+    CalibrationSummary:
+      type: object
+      properties:
+        labeledOverrides:
+          type: integer
+        highConfidenceOverrides:
+          type: integer
+        agreementRate:
+          type: number
+        recommendation:
+          type: string
+        weights:
+          type: object
+          additionalProperties:
+            type: number
+      required: [labeledOverrides, highConfidenceOverrides, agreementRate, recommendation, weights]
 
     # Journal Entry
     JournalEntry:
@@ -995,6 +1098,12 @@ components:
           items:
             type: string
         isaReference:
+          type: string
+        forensicRiskHypothesis:
+          type: string
+        isa240Mapping:
+          type: string
+        recommendedSubstantiveAction:
           type: string
         generatedAt:
           type: string

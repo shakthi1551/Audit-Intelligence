@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { engagementsTable, journalEntriesTable, riskScoresTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { auditLogsTable } from "@workspace/db";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
 import type { AuthenticatedRequest } from "../lib/auth.js";
 
@@ -93,6 +94,73 @@ router.get("/:id", async (req: AuthenticatedRequest, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "Get engagement error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/:id/settings", async (req: AuthenticatedRequest, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const overallMateriality = Number(req.body?.overallMateriality);
+    const performanceMateriality = Number(req.body?.performanceMateriality);
+    if (!Number.isFinite(overallMateriality) || !Number.isFinite(performanceMateriality) ||
+        overallMateriality < 0 || performanceMateriality < 0 ||
+        performanceMateriality > overallMateriality) {
+      res.status(400).json({ error: "Materiality values must be non-negative and performance materiality cannot exceed overall materiality" });
+      return;
+    }
+    const [updated] = await db.update(engagementsTable)
+      .set({ overallMateriality: overallMateriality.toFixed(2), performanceMateriality: performanceMateriality.toFixed(2), updatedAt: new Date() })
+      .where(and(eq(engagementsTable.id, id), eq(engagementsTable.userId, req.userId!)))
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "Engagement not found" });
+      return;
+    }
+    await db.insert(auditLogsTable).values({
+      engagementId: id, userId: req.userId!, action: "ENGAGEMENT_SETTINGS_UPDATED",
+      entityType: "engagement", entityId: id,
+      details: `Materiality updated: overall ${overallMateriality}, performance ${performanceMateriality}`,
+      ipAddress: req.ip,
+    });
+    res.json({ ...updated, overallMateriality: Number(updated.overallMateriality), performanceMateriality: Number(updated.performanceMateriality) });
+  } catch (err) {
+    req.log.error({ err }, "Update engagement settings error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/:id/calibration", async (req: AuthenticatedRequest, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const [engagement] = await db.select({ id: engagementsTable.id }).from(engagementsTable)
+      .where(and(eq(engagementsTable.id, id), eq(engagementsTable.userId, req.userId!)));
+    if (!engagement) {
+      res.status(404).json({ error: "Engagement not found" });
+      return;
+    }
+    const overrides = await db.select().from(auditLogsTable)
+      .where(and(eq(auditLogsTable.engagementId, id), eq(auditLogsTable.action, "RISK_OVERRIDE")))
+      .orderBy(desc(auditLogsTable.createdAt));
+    const highConfidence = overrides.filter((item) => {
+      const metadata = item.metadata as Record<string, unknown> | null;
+      return metadata?.confidenceLevel === "HIGH";
+    }).length;
+    const agreementRate = overrides.length ? Math.round((highConfidence / overrides.length) * 100) : 0;
+    const recommendation = overrides.length === 0
+      ? "Collect a few high-confidence review decisions to start calibrating the heuristic."
+      : agreementRate >= 70
+        ? "Signals are stable. Increase reviewer confidence and keep current weighting."
+        : "The heuristic is uncertain. Review posting-time and amount exceptions before changing weights.";
+    res.json({
+      labeledOverrides: overrides.length,
+      highConfidenceOverrides: highConfidence,
+      agreementRate,
+      recommendation,
+      weights: { postingTime: 25, amount: 20, userConcentration: 20, keywords: 20, frequency: 10, mlAnomaly: 5 },
+    });
+  } catch (err) {
+    req.log.error({ err }, "Calibration summary error");
     res.status(500).json({ error: "Internal server error" });
   }
 });

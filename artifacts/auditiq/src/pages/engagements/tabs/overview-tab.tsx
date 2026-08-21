@@ -3,8 +3,18 @@ import {
   getGetDashboardSummaryQueryKey,
   useGetRiskDistribution,
   getGetRiskDistributionQueryKey,
+  useGetEngagement,
+  getGetEngagementQueryKey,
+  useUpdateEngagementSettings,
+  useGetCalibrationSummary,
+  getGetCalibrationSummaryQueryKey,
 } from "@workspace/api-client-react";
-import { AlertTriangle, TrendingUp, Users, Clock, FileText } from "lucide-react";
+import { AlertTriangle, TrendingUp, Users, Clock, FileText, Settings2, BrainCircuit, Save } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { motion } from "framer-motion";
 
@@ -19,6 +29,32 @@ const COLORS = {
 };
 
 export default function OverviewTab({ engagementId }: OverviewTabProps) {
+  const queryClient = useQueryClient();
+  const { data: engagement } = useGetEngagement(engagementId, {
+    query: { enabled: !!engagementId, queryKey: getGetEngagementQueryKey(engagementId) },
+  });
+  const { data: calibration } = useGetCalibrationSummary(engagementId, {
+    query: { enabled: !!engagementId, queryKey: getGetCalibrationSummaryQueryKey(engagementId) },
+  });
+  const updateSettings = useUpdateEngagementSettings();
+  const [overallMateriality, setOverallMateriality] = useState(0);
+  const [performanceMateriality, setPerformanceMateriality] = useState(0);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (engagement) {
+      setOverallMateriality(Number(engagement.overallMateriality ?? 0));
+      setPerformanceMateriality(Number(engagement.performanceMateriality ?? 0));
+    }
+  }, [engagement]);
+  const saveSettings = () => {
+    updateSettings.mutate({ id: engagementId, data: { overallMateriality, performanceMateriality } }, {
+      onSuccess: () => {
+        setSaved(true);
+        void queryClient.invalidateQueries({ queryKey: getGetEngagementQueryKey(engagementId) });
+        setTimeout(() => setSaved(false), 2200);
+      },
+    });
+  };
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary(engagementId, {
     query: { enabled: !!engagementId, queryKey: getGetDashboardSummaryQueryKey(engagementId) },
   });
@@ -59,6 +95,8 @@ export default function OverviewTab({ engagementId }: OverviewTabProps) {
 
   return (
     <div className="space-y-8">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+        <div className="space-y-8">
       {/* Key metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <motion.div
@@ -281,6 +319,52 @@ export default function OverviewTab({ engagementId }: OverviewTabProps) {
           </div>
         </motion.div>
       )}
+        </div>
+        <aside className="xl:sticky xl:top-6 space-y-4">
+          <div className="bg-card border border-primary/25 rounded-xl p-5 shadow-lg shadow-primary/5">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary"><Settings2 className="h-4 w-4" /></div>
+              <div>
+                <h3 className="font-bold text-foreground">Engagement settings</h3>
+                <p className="text-xs text-muted-foreground">Materiality thresholds</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed my-4">
+              Use the thresholds to anchor your review around what could materially affect the financial statements.
+            </p>
+            <div className="space-y-4">
+              <label className="block space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Overall materiality</span>
+                <Input type="number" min={0} value={overallMateriality} onChange={(e) => setOverallMateriality(Number(e.target.value))} data-testid="input-overall-materiality" />
+              </label>
+              <label className="block space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Performance materiality</span>
+                  <span className="text-xs text-primary font-bold">{overallMateriality ? Math.round((performanceMateriality / overallMateriality) * 100) : 0}%</span>
+                </div>
+                <Slider min={0} max={Math.max(overallMateriality, 1)} step={1} value={[performanceMateriality]} onValueChange={([value]) => setPerformanceMateriality(value)} data-testid="slider-performance-materiality" />
+                <Input type="number" min={0} max={overallMateriality} value={performanceMateriality} onChange={(e) => setPerformanceMateriality(Math.min(Number(e.target.value), overallMateriality))} data-testid="input-performance-materiality" />
+              </label>
+              {performanceMateriality > overallMateriality && <p className="text-xs text-destructive">Performance materiality must not exceed overall materiality.</p>}
+              <Button onClick={saveSettings} disabled={updateSettings.isPending || performanceMateriality > overallMateriality} className="w-full gap-2" data-testid="button-save-materiality">
+                <Save className="h-4 w-4" /> {updateSettings.isPending ? "Saving..." : saved ? "Saved" : "Save settings"}
+              </Button>
+            </div>
+          </div>
+          <div className="bg-card border border-accent/25 rounded-xl p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <BrainCircuit className="h-5 w-5 text-accent" />
+              <div><h3 className="font-bold text-foreground">Heuristic calibration</h3><p className="text-xs text-muted-foreground">Active learning signal</p></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Labels</p><p className="text-xl font-bold">{calibration?.labeledOverrides ?? 0}</p></div>
+              <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Confidence</p><p className="text-xl font-bold text-accent">{calibration?.agreementRate ?? 0}%</p></div>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">{calibration?.recommendation ?? "Loading calibration signal..."}</p>
+            {calibration?.weights && <div className="mt-4 space-y-2">{Object.entries(calibration.weights).map(([key, value]) => <div key={key} className="flex justify-between text-xs"><span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, " $1")}</span><span className="font-semibold">{value}%</span></div>)}</div>}
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
