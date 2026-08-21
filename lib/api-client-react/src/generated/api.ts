@@ -22,6 +22,7 @@ import type {
   AuthResponse,
   BeneishAnalysis,
   BenfordAnalysis,
+  CalibrationSummary,
   CreateEngagementBody,
   CreateWebhookKeyBody,
   DashboardSummary,
@@ -44,6 +45,7 @@ import type {
   RiskDistribution,
   RiskScore,
   TimeHeatmapRow,
+  UpdateEngagementSettingsBody,
   UploadResponse,
   User,
   UserHeatmapRow,
@@ -785,6 +787,94 @@ export const useDeleteEngagement = <
 };
 
 /**
+ * @summary Update engagement materiality settings
+ */
+export const getUpdateEngagementSettingsUrl = (id: number) => {
+  return `/api/engagements/${id}/settings`;
+};
+
+export const updateEngagementSettings = async (
+  id: number,
+  updateEngagementSettingsBody: UpdateEngagementSettingsBody,
+  options?: RequestInit,
+): Promise<Engagement> => {
+  return customFetch<Engagement>(getUpdateEngagementSettingsUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateEngagementSettingsBody),
+  });
+};
+
+export const getUpdateEngagementSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEngagementSettings>>,
+    TError,
+    { id: number; data: BodyType<UpdateEngagementSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEngagementSettings>>,
+  TError,
+  { id: number; data: BodyType<UpdateEngagementSettingsBody> },
+  TContext
+> => {
+  const mutationKey = ["updateEngagementSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEngagementSettings>>,
+    { id: number; data: BodyType<UpdateEngagementSettingsBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateEngagementSettings(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEngagementSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEngagementSettings>>
+>;
+export type UpdateEngagementSettingsMutationBody =
+  BodyType<UpdateEngagementSettingsBody>;
+export type UpdateEngagementSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update engagement materiality settings
+ */
+export const useUpdateEngagementSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEngagementSettings>>,
+    TError,
+    { id: number; data: BodyType<UpdateEngagementSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEngagementSettings>>,
+  TError,
+  { id: number; data: BodyType<UpdateEngagementSettingsBody> },
+  TContext
+> => {
+  return useMutation(getUpdateEngagementSettingsMutationOptions(options));
+};
+
+/**
  * @summary Upload CSV or XLSX file with journal entries
  */
 export const getUploadJournalEntriesUrl = (id: number) => {
@@ -1416,6 +1506,94 @@ export function useGetDashboardSummary<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDashboardSummaryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get heuristic calibration summary
+ */
+export const getGetCalibrationSummaryUrl = (id: number) => {
+  return `/api/engagements/${id}/calibration`;
+};
+
+export const getCalibrationSummary = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CalibrationSummary> => {
+  return customFetch<CalibrationSummary>(getGetCalibrationSummaryUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCalibrationSummaryQueryKey = (id: number) => {
+  return [`/api/engagements/${id}/calibration`] as const;
+};
+
+export const getGetCalibrationSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCalibrationSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCalibrationSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCalibrationSummaryQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCalibrationSummary>>
+  > = ({ signal }) => getCalibrationSummary(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCalibrationSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCalibrationSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCalibrationSummary>>
+>;
+export type GetCalibrationSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get heuristic calibration summary
+ */
+
+export function useGetCalibrationSummary<
+  TData = Awaited<ReturnType<typeof getCalibrationSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCalibrationSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCalibrationSummaryQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

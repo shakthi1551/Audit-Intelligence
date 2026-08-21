@@ -35,6 +35,27 @@ router.post("/:id/upload", async (req: AuthenticatedRequest, res) => {
     const content = buffer.toString("utf-8");
 
     const { entries, errors } = parseCsv(content);
+    const referenceCounts = new Map<string, number>();
+    let sourceDebitTotal = 0;
+    let sourceCreditTotal = 0;
+    let debitObserved = false;
+    let creditObserved = false;
+    for (const entry of entries) {
+      if (entry.referenceNumber) referenceCounts.set(entry.referenceNumber, (referenceCounts.get(entry.referenceNumber) ?? 0) + 1);
+      const raw = entry.rawData as Record<string, unknown>;
+      const debitKey = Object.keys(raw).find((key) => /^(debit|dr)([_ ]?amount)?$/i.test(key));
+      const creditKey = Object.keys(raw).find((key) => /^(credit|cr)([_ ]?amount)?$/i.test(key));
+      if (debitKey && raw[debitKey] !== "") { sourceDebitTotal += Number(String(raw[debitKey]).replace(/[,$\s]/g, "")) || 0; debitObserved = true; }
+      if (creditKey && raw[creditKey] !== "") { sourceCreditTotal += Number(String(raw[creditKey]).replace(/[,$\s]/g, "")) || 0; creditObserved = true; }
+    }
+    const duplicateReferenceCount = [...referenceCounts.values()].filter((count) => count > 1).reduce((sum, count) => sum + count - 1, 0);
+    const missingReferenceCount = entries.filter((entry) => !entry.referenceNumber).length;
+    const imbalance = Math.abs(sourceDebitTotal - sourceCreditTotal);
+    const reconciliationWarnings = [
+      ...(debitObserved && creditObserved && imbalance > 0.01 ? [`Ledger is out of balance by ${imbalance.toFixed(2)}`] : []),
+      ...(duplicateReferenceCount > 0 ? [`${duplicateReferenceCount} duplicate reference number(s) detected`] : []),
+      ...(missingReferenceCount > 0 ? [`${missingReferenceCount} row(s) have no reference number`] : []),
+    ];
 
     if (entries.length === 0) {
       res.status(400).json({
@@ -83,6 +104,12 @@ router.post("/:id/upload", async (req: AuthenticatedRequest, res) => {
       totalRows: entries.length,
       processedRows: inserted.length,
       errors,
+      reconciliation: {
+        sourceDebitTotal, sourceCreditTotal, imbalance,
+        isBalanced: debitObserved && creditObserved ? imbalance <= 0.01 : true,
+        duplicateReferenceCount, missingReferenceCount,
+        warningCount: reconciliationWarnings.length, warnings: reconciliationWarnings,
+      },
     });
   } catch (err) {
     req.log.error({ err }, "Upload error");

@@ -1,2 +1,3 @@
 - [Express 5 req.params cast](express5-params-cast.md) — Express 5 types req.params values as `string | string[]`; always use `as string` cast with `parseInt`.
 - [Orval queryKey required](orval-querykey-required.md) — Generated useXxx hooks require `queryKey` in the query options object; use `getXxxQueryKey(params)` to provide it.
+- [Audit engagement controls](audit-engagement-controls.md) — Materiality, reconciliation, calibration, and structured AI explanations belong to the engagement workflow.

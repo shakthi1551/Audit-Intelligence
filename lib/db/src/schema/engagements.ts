@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, numeric, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -12,6 +12,8 @@ export const engagementsTable = pgTable("engagements", {
   clientName: text("client_name").notNull(),
   period: text("period").notNull(),
   description: text("description"),
+  overallMateriality: numeric("overall_materiality", { precision: 14, scale: 2 }).notNull().default("0"),
+  performanceMateriality: numeric("performance_materiality", { precision: 14, scale: 2 }).notNull().default("0"),
   status: engagementStatusEnum("status").notNull().default("ACTIVE"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

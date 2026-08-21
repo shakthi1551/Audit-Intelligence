@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Upload, FileText, AlertCircle, CheckCircle2, ArrowLeft, File } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle2, ArrowLeft, File, Scale, CopyCheck } from "lucide-react";
 import { useUploadJournalEntries } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ export default function UploadJournalEntries({ params }: { params?: { id: string
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [reconciliation, setReconciliation] = useState<{ sourceDebitTotal: number; sourceCreditTotal: number; imbalance: number; isBalanced: boolean; duplicateReferenceCount: number; missingReferenceCount: number; warnings: string[] } | null>(null);
 
   const uploadMutation = useUploadJournalEntries();
 
@@ -68,6 +69,7 @@ export default function UploadJournalEntries({ params }: { params?: { id: string
       { id: engagementId, data: file as any },
       {
         onSuccess: (response) => {
+          setReconciliation(response.reconciliation ?? null);
           toast({
             title: "Upload successful",
             description: `Processed ${response.processedRows} of ${response.totalRows} rows`,
@@ -205,6 +207,18 @@ export default function UploadJournalEntries({ params }: { params?: { id: string
               </div>
               <Progress value={undefined} className="h-2" />
             </motion.div>
+          )}
+          {reconciliation && (
+            <div className={`mt-6 rounded-xl border p-5 ${reconciliation.isBalanced && reconciliation.warnings.length === 0 ? "border-chart-5/30 bg-chart-5/5" : "border-chart-3/30 bg-chart-3/5"}`}>
+              <div className="flex items-center gap-3 mb-4"><Scale className="h-5 w-5 text-primary" /><div><h3 className="font-semibold">Ledger reconciliation</h3><p className="text-xs text-muted-foreground">Ingestion quality checks completed</p></div></div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div><p className="text-xs text-muted-foreground">Debit total</p><p className="font-bold">{reconciliation.sourceDebitTotal.toLocaleString()}</p></div>
+                <div><p className="text-xs text-muted-foreground">Credit total</p><p className="font-bold">{reconciliation.sourceCreditTotal.toLocaleString()}</p></div>
+                <div><p className="text-xs text-muted-foreground">Imbalance</p><p className="font-bold">{reconciliation.imbalance.toLocaleString()}</p></div>
+                <div><p className="text-xs text-muted-foreground">Duplicates</p><p className="font-bold">{reconciliation.duplicateReferenceCount}</p></div>
+              </div>
+              {reconciliation.warnings.length > 0 && <div className="mt-4 space-y-1">{reconciliation.warnings.map((warning) => <p key={warning} className="text-xs text-chart-3 flex items-center gap-2"><CopyCheck className="h-3 w-3" />{warning}</p>)}</div>}
+            </div>
           )}
 
           {uploadMutation.isError && (

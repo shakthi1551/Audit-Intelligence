@@ -78,6 +78,9 @@ export const ListEngagementsResponseItem = zod.object({
   name: zod.string(),
   clientName: zod.string(),
   period: zod.string(),
+  description: zod.string().optional(),
+  overallMateriality: zod.number().optional(),
+  performanceMateriality: zod.number().optional(),
   status: zod.enum(["ACTIVE", "COMPLETED", "ARCHIVED"]),
   totalEntries: zod.number().optional(),
   highRiskCount: zod.number().optional(),
@@ -110,6 +113,9 @@ export const GetEngagementResponse = zod.object({
   name: zod.string(),
   clientName: zod.string(),
   period: zod.string(),
+  description: zod.string().optional(),
+  overallMateriality: zod.number().optional(),
+  performanceMateriality: zod.number().optional(),
   status: zod.enum(["ACTIVE", "COMPLETED", "ARCHIVED"]),
   totalEntries: zod.number().optional(),
   highRiskCount: zod.number().optional(),
@@ -128,6 +134,43 @@ export const DeleteEngagementParams = zod.object({
 
 export const DeleteEngagementResponse = zod.object({
   message: zod.string(),
+});
+
+/**
+ * @summary Update engagement materiality settings
+ */
+export const UpdateEngagementSettingsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateEngagementSettingsBodyOverallMaterialityMin = 0;
+
+export const updateEngagementSettingsBodyPerformanceMaterialityMin = 0;
+
+export const UpdateEngagementSettingsBody = zod.object({
+  overallMateriality: zod
+    .number()
+    .min(updateEngagementSettingsBodyOverallMaterialityMin),
+  performanceMateriality: zod
+    .number()
+    .min(updateEngagementSettingsBodyPerformanceMaterialityMin),
+});
+
+export const UpdateEngagementSettingsResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  clientName: zod.string(),
+  period: zod.string(),
+  description: zod.string().optional(),
+  overallMateriality: zod.number().optional(),
+  performanceMateriality: zod.number().optional(),
+  status: zod.enum(["ACTIVE", "COMPLETED", "ARCHIVED"]),
+  totalEntries: zod.number().optional(),
+  highRiskCount: zod.number().optional(),
+  mediumRiskCount: zod.number().optional(),
+  lowRiskCount: zod.number().optional(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
 });
 
 /**
@@ -278,6 +321,9 @@ export const GetJournalEntryResponse = zod.object({
       explanation: zod.string(),
       triggers: zod.array(zod.string()),
       isaReference: zod.string().optional(),
+      forensicRiskHypothesis: zod.string().optional(),
+      isa240Mapping: zod.string().optional(),
+      recommendedSubstantiveAction: zod.string().optional(),
       generatedAt: zod.coerce.date(),
       modelUsed: zod.string().optional(),
     })
@@ -349,6 +395,9 @@ export const GetAiExplanationResponse = zod.object({
   explanation: zod.string(),
   triggers: zod.array(zod.string()),
   isaReference: zod.string().optional(),
+  forensicRiskHypothesis: zod.string().optional(),
+  isa240Mapping: zod.string().optional(),
+  recommendedSubstantiveAction: zod.string().optional(),
   generatedAt: zod.coerce.date(),
   modelUsed: zod.string().optional(),
 });
@@ -366,6 +415,9 @@ export const GenerateAiExplanationResponse = zod.object({
   explanation: zod.string(),
   triggers: zod.array(zod.string()),
   isaReference: zod.string().optional(),
+  forensicRiskHypothesis: zod.string().optional(),
+  isa240Mapping: zod.string().optional(),
+  recommendedSubstantiveAction: zod.string().optional(),
   generatedAt: zod.coerce.date(),
   modelUsed: zod.string().optional(),
 });
@@ -466,6 +518,21 @@ export const GetDashboardSummaryResponse = zod.object({
   weekendCount: zod.number().optional(),
   aiExplanationCount: zod.number().optional(),
   duplicateSuspects: zod.number().optional(),
+});
+
+/**
+ * @summary Get heuristic calibration summary
+ */
+export const GetCalibrationSummaryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCalibrationSummaryResponse = zod.object({
+  labeledOverrides: zod.number(),
+  highConfidenceOverrides: zod.number(),
+  agreementRate: zod.number(),
+  recommendation: zod.string(),
+  weights: zod.record(zod.string(), zod.number()),
 });
 
 /**
@@ -802,6 +869,9 @@ export const GetOverallDashboardResponse = zod.object({
         name: zod.string(),
         clientName: zod.string(),
         period: zod.string(),
+        description: zod.string().optional(),
+        overallMateriality: zod.number().optional(),
+        performanceMateriality: zod.number().optional(),
         status: zod.enum(["ACTIVE", "COMPLETED", "ARCHIVED"]),
         totalEntries: zod.number().optional(),
         highRiskCount: zod.number().optional(),

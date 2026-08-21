@@ -172,7 +172,7 @@ router.post("/:entryId/explanation", async (req: AuthenticatedRequest, res) => {
 - Keyword Score: ${parseFloat(score.keywordScore)}/20
 - Frequency Score: ${parseFloat(score.frequencyScore)}/10` : "";
 
-    const prompt = `You are a forensic audit expert analyzing a journal entry for risk. Explain why this entry is risky based on ISA 240 (The Auditor's Responsibilities Relating to Fraud). Keep under 80 words. Mention specific risk triggers.
+    const prompt = `You are a forensic audit expert analyzing a journal entry for risk under ISA 240. Return JSON only with exactly these keys: forensicRiskHypothesis, isa240Mapping, recommendedSubstantiveAction, triggers. Keep each of the first three values under 80 words. The ISA mapping must name a specific ISA 240 paragraph or clearly state the paragraph reference is a professional judgement point to validate against the firm's licensed standard. The substantive action must be an exact next procedure for a junior auditor.
 
 Journal Entry:
 - Date: ${entry.entryDate}
@@ -184,7 +184,7 @@ Journal Entry:
 - Credit Account: ${entry.creditAccount ?? "Unknown"}
 ${scoreDetails}
 
-Respond with JSON: {"explanation": "...", "triggers": ["trigger1", "trigger2"], "isaReference": "ISA 240 paragraph X"}`;
+Respond with JSON: {"forensicRiskHypothesis":"...", "isa240Mapping":"ISA 240 paragraph ...", "recommendedSubstantiveAction":"...", "triggers":["..."]}`;
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
@@ -194,10 +194,11 @@ Respond with JSON: {"explanation": "...", "triggers": ["trigger1", "trigger2"], 
 
     const text = message.content[0]?.type === "text" ? message.content[0].text : "";
 
-    let parsed: { explanation: string; triggers: string[]; isaReference: string } = {
-      explanation: text.slice(0, 400),
+    let parsed: { forensicRiskHypothesis: string; isa240Mapping: string; recommendedSubstantiveAction: string; triggers: string[] } = {
+      forensicRiskHypothesis: text.slice(0, 400),
+      isa240Mapping: "ISA 240 — validate the applicable paragraph against the firm's licensed standard.",
+      recommendedSubstantiveAction: "Inspect the supporting document and make a documented management inquiry.",
       triggers: [],
-      isaReference: "ISA 240",
     };
 
     try {
@@ -215,9 +216,12 @@ Respond with JSON: {"explanation": "...", "triggers": ["trigger1", "trigger2"], 
     if (existing.length > 0) {
       [explanation] = await db.update(aiExplanationsTable)
         .set({
-          explanation: parsed.explanation,
+          explanation: parsed.forensicRiskHypothesis,
+          forensicRiskHypothesis: parsed.forensicRiskHypothesis,
+          isa240Mapping: parsed.isa240Mapping,
+          recommendedSubstantiveAction: parsed.recommendedSubstantiveAction,
           triggers: parsed.triggers,
-          isaReference: parsed.isaReference,
+          isaReference: parsed.isa240Mapping,
           generatedAt: new Date(),
         })
         .where(eq(aiExplanationsTable.entryId, entryId))
@@ -225,9 +229,12 @@ Respond with JSON: {"explanation": "...", "triggers": ["trigger1", "trigger2"], 
     } else {
       [explanation] = await db.insert(aiExplanationsTable).values({
         entryId,
-        explanation: parsed.explanation,
+        explanation: parsed.forensicRiskHypothesis,
+        forensicRiskHypothesis: parsed.forensicRiskHypothesis,
+        isa240Mapping: parsed.isa240Mapping,
+        recommendedSubstantiveAction: parsed.recommendedSubstantiveAction,
         triggers: parsed.triggers,
-        isaReference: parsed.isaReference,
+        isaReference: parsed.isa240Mapping,
       }).returning();
     }
 
