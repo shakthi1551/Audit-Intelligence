@@ -5,6 +5,7 @@ import { auditLogsTable } from "@workspace/db";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
 import type { AuthenticatedRequest } from "../lib/auth.js";
+import { scoreEntries } from "../lib/risk-engine.js";
 
 const router = Router();
 
@@ -109,6 +110,11 @@ router.patch("/:id/settings", async (req: AuthenticatedRequest, res) => {
       res.status(400).json({ error: "Materiality values must be non-negative and performance materiality cannot exceed overall materiality" });
       return;
     }
+    const [current] = await db.select({
+      overallMateriality: engagementsTable.overallMateriality,
+      performanceMateriality: engagementsTable.performanceMateriality,
+    }).from(engagementsTable)
+      .where(and(eq(engagementsTable.id, id), eq(engagementsTable.userId, req.userId!)));
     const [updated] = await db.update(engagementsTable)
       .set({ overallMateriality: overallMateriality.toFixed(2), performanceMateriality: performanceMateriality.toFixed(2), updatedAt: new Date() })
       .where(and(eq(engagementsTable.id, id), eq(engagementsTable.userId, req.userId!)))
@@ -117,10 +123,11 @@ router.patch("/:id/settings", async (req: AuthenticatedRequest, res) => {
       res.status(404).json({ error: "Engagement not found" });
       return;
     }
+    await scoreEntries(id);
     await db.insert(auditLogsTable).values({
       engagementId: id, userId: req.userId!, action: "ENGAGEMENT_SETTINGS_UPDATED",
       entityType: "engagement", entityId: id,
-      details: `Materiality updated: overall ${overallMateriality}, performance ${performanceMateriality}`,
+      details: `Materiality updated from ${current?.overallMateriality ?? "0"}/${current?.performanceMateriality ?? "0"} to ${overallMateriality}/${performanceMateriality}`,
       ipAddress: req.ip,
     });
     res.json({ ...updated, overallMateriality: Number(updated.overallMateriality), performanceMateriality: Number(updated.performanceMateriality) });
