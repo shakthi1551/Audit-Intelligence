@@ -74,7 +74,7 @@ export default function UploadJournalEntries({ params }: { params?: { id: string
             title: "Upload successful",
             description: `Processed ${response.processedRows} of ${response.totalRows} rows`,
           });
-          setLocation(`/engagements/${engagementId}`);
+          setFile(null);
         },
         onError: (error: Error) => {
           toast({
@@ -271,10 +271,15 @@ export default function UploadJournalEntries({ params }: { params?: { id: string
         </motion.div>
 
         {/* Action buttons */}
-        <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-3">
           <Link href={`/engagements/${engagementId}`}>
             <Button variant="outline">Cancel</Button>
           </Link>
+          {reconciliation && (
+            <Link href={`/engagements/${engagementId}`}>
+              <Button variant="outline" data-testid="button-view-engagement">View engagement</Button>
+            </Link>
+          )}
           <Button
             onClick={handleUpload}
             disabled={!file || uploadMutation.isPending}

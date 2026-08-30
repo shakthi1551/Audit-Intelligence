@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { journalEntriesTable, riskScoresTable } from "@workspace/db";
+import { journalEntriesTable, riskScoresTable, engagementsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { runIsolationForest } from "./iforest.js";
 
@@ -38,7 +38,7 @@ function scorePostingTime(entry: RawEntry): number {
   return 0;
 }
 
-function scoreAmount(amount: number, allAmounts: number[]): number {
+function scoreAmount(amount: number, allAmounts: number[], overallMateriality = 0, performanceMateriality = 0): number {
   if (allAmounts.length === 0) return 0;
   const sorted = [...allAmounts].sort((a, b) => a - b);
   const p95 = sorted[Math.floor(sorted.length * 0.95)];
@@ -50,6 +50,9 @@ function scoreAmount(amount: number, allAmounts: number[]): number {
   const isLarge = amount > p95;
 
   let score = 0;
+  const absoluteAmount = Math.abs(amount);
+  if (overallMateriality > 0 && absoluteAmount >= overallMateriality) score += 15;
+  else if (performanceMateriality > 0 && absoluteAmount >= performanceMateriality) score += 10;
   if (isVeryLarge) score += 20;
   else if (isLarge) score += 10;
   if (isRound && amount > mean) score += 5;
@@ -102,6 +105,13 @@ export async function scoreEntries(engagementId: number): Promise<void> {
 
   if (entries.length === 0) return;
 
+  const [engagement] = await db.select({
+    overallMateriality: engagementsTable.overallMateriality,
+    performanceMateriality: engagementsTable.performanceMateriality,
+  }).from(engagementsTable).where(eq(engagementsTable.id, engagementId));
+  const overallMateriality = Number(engagement?.overallMateriality ?? 0);
+  const performanceMateriality = Number(engagement?.performanceMateriality ?? 0);
+
   const amounts = entries.map(e => parseFloat(e.amount));
 
   // Run Isolation Forest across all entries to produce ML anomaly scores
@@ -110,7 +120,7 @@ export async function scoreEntries(engagementId: number): Promise<void> {
   for (const entry of entries) {
     const amount = parseFloat(entry.amount);
     const postingTimeScore = scorePostingTime(entry as RawEntry);
-    const amountScore = scoreAmount(amount, amounts);
+    const amountScore = scoreAmount(amount, amounts, overallMateriality, performanceMateriality);
     const userConcentrationScore = scoreUserConcentration(entry.postedBy, entries as RawEntry[]);
     const keywordScore = scoreKeywords(entry.description);
     const frequencyScore = scoreFrequency(entry as RawEntry, entries as RawEntry[]);

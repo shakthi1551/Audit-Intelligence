@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { motion } from "framer-motion";
 
@@ -37,6 +38,7 @@ export default function OverviewTab({ engagementId }: OverviewTabProps) {
     query: { enabled: !!engagementId, queryKey: getGetCalibrationSummaryQueryKey(engagementId) },
   });
   const updateSettings = useUpdateEngagementSettings();
+  const { toast } = useToast();
   const [overallMateriality, setOverallMateriality] = useState(0);
   const [performanceMateriality, setPerformanceMateriality] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -53,6 +55,7 @@ export default function OverviewTab({ engagementId }: OverviewTabProps) {
         void queryClient.invalidateQueries({ queryKey: getGetEngagementQueryKey(engagementId) });
         setTimeout(() => setSaved(false), 2200);
       },
+      onError: (error) => toast({ title: "Could not save settings", description: error.message, variant: "destructive" }),
     });
   };
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary(engagementId, {
