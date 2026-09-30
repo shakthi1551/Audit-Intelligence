@@ -1,7 +1,14 @@
-import { pgTable, serial, text, timestamp, integer, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, serial, text, timestamp, integer, numeric, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { engagementsTable } from "./engagements";
+import { usersTable } from "./users";
+
+export const fraudEvaluationOutcomeEnum = pgEnum("fraud_evaluation_outcome", [
+  "CONFIRMED_FRAUD",
+  "LEGITIMATE",
+  "INCONCLUSIVE",
+]);
 
 export const journalEntriesTable = pgTable("journal_entries", {
   id: serial("id").primaryKey(),
@@ -15,6 +22,9 @@ export const journalEntriesTable = pgTable("journal_entries", {
   postingTime: text("posting_time"),
   referenceNumber: text("reference_number"),
   rawData: jsonb("raw_data"),
+  evaluationOutcome: fraudEvaluationOutcomeEnum("evaluation_outcome"),
+  evaluationReviewedBy: integer("evaluation_reviewed_by").references(() => usersTable.id),
+  evaluationReviewedAt: timestamp("evaluation_reviewed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

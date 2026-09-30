@@ -212,6 +212,16 @@ export const ListJournalEntriesResponse = zod.object({
       amount: zod.number(),
       postingTime: zod.string().optional(),
       referenceNumber: zod.string().optional(),
+      evaluationOutcome: zod
+        .union([
+          zod.literal("CONFIRMED_FRAUD"),
+          zod.literal("LEGITIMATE"),
+          zod.literal("INCONCLUSIVE"),
+          zod.literal(null),
+        ])
+        .nullable(),
+      evaluationReviewedBy: zod.number().nullable(),
+      evaluationReviewedAt: zod.coerce.date().nullable(),
       riskScore: zod
         .object({
           id: zod.number(),
@@ -286,6 +296,16 @@ export const GetJournalEntryResponse = zod.object({
   amount: zod.number(),
   postingTime: zod.string().optional(),
   referenceNumber: zod.string().optional(),
+  evaluationOutcome: zod
+    .union([
+      zod.literal("CONFIRMED_FRAUD"),
+      zod.literal("LEGITIMATE"),
+      zod.literal("INCONCLUSIVE"),
+      zod.literal(null),
+    ])
+    .nullable(),
+  evaluationReviewedBy: zod.number().nullable(),
+  evaluationReviewedAt: zod.coerce.date().nullable(),
   rawData: zod.object({}).passthrough().optional(),
   riskScore: zod
     .object({
@@ -383,6 +403,39 @@ export const OverrideRiskScoreResponse = zod.object({
 });
 
 /**
+ * @summary Record or clear the auditor-reviewed fraud outcome for an entry
+ */
+export const UpdateJournalEntryEvaluationOutcomeParams = zod.object({
+  entryId: zod.coerce.number(),
+});
+
+export const UpdateJournalEntryEvaluationOutcomeBody = zod.object({
+  outcome: zod
+    .union([
+      zod.literal("CONFIRMED_FRAUD"),
+      zod.literal("LEGITIMATE"),
+      zod.literal("INCONCLUSIVE"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Use null to clear the review label."),
+});
+
+export const UpdateJournalEntryEvaluationOutcomeResponse = zod.object({
+  entryId: zod.number(),
+  outcome: zod
+    .union([
+      zod.literal("CONFIRMED_FRAUD"),
+      zod.literal("LEGITIMATE"),
+      zod.literal("INCONCLUSIVE"),
+      zod.literal(null),
+    ])
+    .nullable(),
+  reviewedBy: zod.number().nullable(),
+  reviewedAt: zod.coerce.date().nullable(),
+});
+
+/**
  * @summary Get AI explanation for an entry
  */
 export const GetAiExplanationParams = zod.object({
@@ -463,6 +516,16 @@ export const GetDashboardSummaryResponse = zod.object({
         amount: zod.number(),
         postingTime: zod.string().optional(),
         referenceNumber: zod.string().optional(),
+        evaluationOutcome: zod
+          .union([
+            zod.literal("CONFIRMED_FRAUD"),
+            zod.literal("LEGITIMATE"),
+            zod.literal("INCONCLUSIVE"),
+            zod.literal(null),
+          ])
+          .nullable(),
+        evaluationReviewedBy: zod.number().nullable(),
+        evaluationReviewedAt: zod.coerce.date().nullable(),
         riskScore: zod
           .object({
             id: zod.number(),
@@ -533,6 +596,38 @@ export const GetCalibrationSummaryResponse = zod.object({
   agreementRate: zod.number(),
   recommendation: zod.string(),
   weights: zod.record(zod.string(), zod.number()),
+});
+
+/**
+ * @summary Calculate fraud prediction precision, recall, and F1 against reviewed outcomes
+ */
+export const GetFraudEvaluationSummaryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const getFraudEvaluationSummaryQueryThresholdDefault = `MEDIUM`;
+
+export const GetFraudEvaluationSummaryQueryParams = zod.object({
+  threshold: zod
+    .enum(["MEDIUM", "HIGH"])
+    .default(getFraudEvaluationSummaryQueryThresholdDefault),
+});
+
+export const GetFraudEvaluationSummaryResponse = zod.object({
+  threshold: zod.enum(["MEDIUM", "HIGH"]),
+  truePositive: zod.number(),
+  falsePositive: zod.number(),
+  trueNegative: zod.number(),
+  falseNegative: zod.number(),
+  precision: zod.number().nullable(),
+  recall: zod.number().nullable(),
+  f1: zod.number().nullable(),
+  evaluatedEntries: zod.number(),
+  confirmedFraudEntries: zod.number(),
+  legitimateEntries: zod.number(),
+  inconclusiveEntries: zod.number(),
+  unreviewedEntries: zod.number(),
+  unscoredEntries: zod.number(),
 });
 
 /**
@@ -667,6 +762,16 @@ export const GetDuplicatesResponseItem = zod.object({
       amount: zod.number(),
       postingTime: zod.string().optional(),
       referenceNumber: zod.string().optional(),
+      evaluationOutcome: zod
+        .union([
+          zod.literal("CONFIRMED_FRAUD"),
+          zod.literal("LEGITIMATE"),
+          zod.literal("INCONCLUSIVE"),
+          zod.literal(null),
+        ])
+        .nullable(),
+      evaluationReviewedBy: zod.number().nullable(),
+      evaluationReviewedAt: zod.coerce.date().nullable(),
       riskScore: zod
         .object({
           id: zod.number(),

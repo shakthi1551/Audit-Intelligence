@@ -5,10 +5,84 @@ import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
 import type { AuthenticatedRequest } from "../lib/auth.js";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
-import { classifyRisk } from "../lib/risk-engine.js";
+import {
+  UpdateJournalEntryEvaluationOutcomeBody,
+  UpdateJournalEntryEvaluationOutcomeParams,
+  UpdateJournalEntryEvaluationOutcomeResponse,
+} from "@workspace/api-zod";
 
 const router = Router();
 router.use(requireAuth);
+
+router.patch("/:entryId/evaluation-outcome", async (req: AuthenticatedRequest, res): Promise<void> => {
+  try {
+    const params = UpdateJournalEntryEvaluationOutcomeParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const body = UpdateJournalEntryEvaluationOutcomeBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+
+    const [entry] = await db.select({
+      id: journalEntriesTable.id,
+      engagementId: journalEntriesTable.engagementId,
+      evaluationOutcome: journalEntriesTable.evaluationOutcome,
+    }).from(journalEntriesTable)
+      .innerJoin(engagementsTable, eq(journalEntriesTable.engagementId, engagementsTable.id))
+      .where(and(
+        eq(journalEntriesTable.id, params.data.entryId),
+        eq(engagementsTable.userId, req.userId!),
+      ));
+    if (!entry) {
+      res.status(404).json({ error: "Entry not found" });
+      return;
+    }
+
+    const reviewedAt = body.data.outcome === null ? null : new Date();
+    const [updated] = await db.update(journalEntriesTable)
+      .set({
+        evaluationOutcome: body.data.outcome,
+        evaluationReviewedBy: reviewedAt ? req.userId! : null,
+        evaluationReviewedAt: reviewedAt,
+      })
+      .where(eq(journalEntriesTable.id, entry.id))
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "Entry not found" });
+      return;
+    }
+
+    await db.insert(auditLogsTable).values({
+      engagementId: entry.engagementId,
+      userId: req.userId!,
+      action: "FRAUD_EVALUATION_OUTCOME_UPDATED",
+      entityType: "journal_entry",
+      entityId: entry.id,
+      details: `Fraud evaluation outcome changed from ${entry.evaluationOutcome ?? "UNREVIEWED"} to ${body.data.outcome ?? "UNREVIEWED"}`,
+      previousValue: entry.evaluationOutcome ?? "UNREVIEWED",
+      ipAddress: req.ip,
+      metadata: {
+        previousOutcome: entry.evaluationOutcome,
+        outcome: body.data.outcome,
+        reviewedAt: reviewedAt?.toISOString() ?? null,
+      },
+    });
+
+    res.json(UpdateJournalEntryEvaluationOutcomeResponse.parse({
+      entryId: updated.id,
+      outcome: updated.evaluationOutcome,
+      reviewedBy: updated.evaluationReviewedBy,
+      reviewedAt: updated.evaluationReviewedAt,
+    }));
+  } catch (err) {
+    req.log.error({ err }, "Update fraud evaluation outcome error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // Get single entry with full details
 router.get("/:entryId", async (req: AuthenticatedRequest, res) => {

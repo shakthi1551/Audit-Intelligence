@@ -333,6 +333,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/RiskScore"
 
+  /entries/{entryId}/evaluation-outcome:
+    patch:
+      operationId: updateJournalEntryEvaluationOutcome
+      tags: [journal-entries]
+      summary: Record or clear the auditor-reviewed fraud outcome for an entry
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JournalEntryEvaluationUpdate"
+      responses:
+        "200":
+          description: Evaluation outcome updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntryEvaluation"
+        "400":
+          description: Invalid evaluation outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /entries/{entryId}/explanation:
     get:
       operationId: getAiExplanation
@@ -407,6 +444,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CalibrationSummary"
+
+  /engagements/{id}/fraud-evaluation:
+    get:
+      operationId: getFraudEvaluationSummary
+      tags: [engagements]
+      summary: Calculate fraud prediction precision, recall, and F1 against reviewed outcomes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: threshold
+          in: query
+          schema:
+            type: string
+            enum: [MEDIUM, HIGH]
+            default: MEDIUM
+      responses:
+        "200":
+          description: Fraud prediction evaluation metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FraudEvaluationSummary"
+        "404":
+          description: Engagement not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /engagements/{id}/heatmap/users:
     get:
@@ -940,6 +1008,64 @@ components:
             type: number
       required: [labeledOverrides, highConfidenceOverrides, agreementRate, recommendation, weights]
 
+    JournalEntryEvaluationUpdate:
+      type: object
+      properties:
+        outcome:
+          type: ["string", "null"]
+          enum: [CONFIRMED_FRAUD, LEGITIMATE, INCONCLUSIVE, null]
+          description: Use null to clear the review label.
+      required: [outcome]
+
+    JournalEntryEvaluation:
+      type: object
+      properties:
+        entryId:
+          type: integer
+        outcome:
+          type: ["string", "null"]
+          enum: [CONFIRMED_FRAUD, LEGITIMATE, INCONCLUSIVE, null]
+        reviewedBy:
+          type: ["integer", "null"]
+        reviewedAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [entryId, outcome, reviewedBy, reviewedAt]
+
+    FraudEvaluationSummary:
+      type: object
+      properties:
+        threshold:
+          type: string
+          enum: [MEDIUM, HIGH]
+        truePositive:
+          type: integer
+        falsePositive:
+          type: integer
+        trueNegative:
+          type: integer
+        falseNegative:
+          type: integer
+        precision:
+          type: ["number", "null"]
+        recall:
+          type: ["number", "null"]
+        f1:
+          type: ["number", "null"]
+        evaluatedEntries:
+          type: integer
+        confirmedFraudEntries:
+          type: integer
+        legitimateEntries:
+          type: integer
+        inconclusiveEntries:
+          type: integer
+        unreviewedEntries:
+          type: integer
+        unscoredEntries:
+          type: integer
+      required: [threshold, truePositive, falsePositive, trueNegative, falseNegative, precision, recall, f1, evaluatedEntries, confirmedFraudEntries, legitimateEntries, inconclusiveEntries, unreviewedEntries, unscoredEntries]
+
     # Journal Entry
     JournalEntry:
       type: object
@@ -964,13 +1090,21 @@ components:
           type: string
         referenceNumber:
           type: string
+        evaluationOutcome:
+          type: ["string", "null"]
+          enum: [CONFIRMED_FRAUD, LEGITIMATE, INCONCLUSIVE, null]
+        evaluationReviewedBy:
+          type: ["integer", "null"]
+        evaluationReviewedAt:
+          type: ["string", "null"]
+          format: date-time
         riskScore:
           $ref: "#/components/schemas/RiskScore"
         beneishTags:
           type: array
           items:
             $ref: "#/components/schemas/BeneishTag"
-      required: [id, engagementId, entryDate, postedBy, description, amount]
+      required: [id, engagementId, entryDate, postedBy, description, amount, evaluationOutcome, evaluationReviewedBy, evaluationReviewedAt]
 
     JournalEntryDetail:
       type: object
@@ -995,13 +1129,21 @@ components:
           type: string
         referenceNumber:
           type: string
+        evaluationOutcome:
+          type: ["string", "null"]
+          enum: [CONFIRMED_FRAUD, LEGITIMATE, INCONCLUSIVE, null]
+        evaluationReviewedBy:
+          type: ["integer", "null"]
+        evaluationReviewedAt:
+          type: ["string", "null"]
+          format: date-time
         rawData:
           type: object
         riskScore:
           $ref: "#/components/schemas/RiskScore"
         aiExplanation:
           $ref: "#/components/schemas/AiExplanation"
-      required: [id, engagementId, entryDate, postedBy, description, amount]
+      required: [id, engagementId, entryDate, postedBy, description, amount, evaluationOutcome, evaluationReviewedBy, evaluationReviewedAt]
 
     JournalEntryListResponse:
       type: object

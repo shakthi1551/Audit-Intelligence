@@ -31,8 +31,12 @@ import type {
   DuplicateGroup,
   Engagement,
   ErrorResponse,
+  FraudEvaluationSummary,
+  GetFraudEvaluationSummaryParams,
   HealthStatus,
   JournalEntryDetail,
+  JournalEntryEvaluation,
+  JournalEntryEvaluationUpdate,
   JournalEntryListResponse,
   ListAuditLogsParams,
   ListJournalEntriesParams,
@@ -1256,6 +1260,100 @@ export const useOverrideRiskScore = <
 };
 
 /**
+ * @summary Record or clear the auditor-reviewed fraud outcome for an entry
+ */
+export const getUpdateJournalEntryEvaluationOutcomeUrl = (entryId: number) => {
+  return `/api/entries/${entryId}/evaluation-outcome`;
+};
+
+export const updateJournalEntryEvaluationOutcome = async (
+  entryId: number,
+  journalEntryEvaluationUpdate: JournalEntryEvaluationUpdate,
+  options?: RequestInit,
+): Promise<JournalEntryEvaluation> => {
+  return customFetch<JournalEntryEvaluation>(
+    getUpdateJournalEntryEvaluationOutcomeUrl(entryId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(journalEntryEvaluationUpdate),
+    },
+  );
+};
+
+export const getUpdateJournalEntryEvaluationOutcomeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateJournalEntryEvaluationOutcome>>,
+    TError,
+    { entryId: number; data: BodyType<JournalEntryEvaluationUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateJournalEntryEvaluationOutcome>>,
+  TError,
+  { entryId: number; data: BodyType<JournalEntryEvaluationUpdate> },
+  TContext
+> => {
+  const mutationKey = ["updateJournalEntryEvaluationOutcome"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateJournalEntryEvaluationOutcome>>,
+    { entryId: number; data: BodyType<JournalEntryEvaluationUpdate> }
+  > = (props) => {
+    const { entryId, data } = props ?? {};
+
+    return updateJournalEntryEvaluationOutcome(entryId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateJournalEntryEvaluationOutcomeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateJournalEntryEvaluationOutcome>>
+>;
+export type UpdateJournalEntryEvaluationOutcomeMutationBody =
+  BodyType<JournalEntryEvaluationUpdate>;
+export type UpdateJournalEntryEvaluationOutcomeMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Record or clear the auditor-reviewed fraud outcome for an entry
+ */
+export const useUpdateJournalEntryEvaluationOutcome = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateJournalEntryEvaluationOutcome>>,
+    TError,
+    { entryId: number; data: BodyType<JournalEntryEvaluationUpdate> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateJournalEntryEvaluationOutcome>>,
+  TError,
+  { entryId: number; data: BodyType<JournalEntryEvaluationUpdate> },
+  TContext
+> => {
+  return useMutation(
+    getUpdateJournalEntryEvaluationOutcomeMutationOptions(options),
+  );
+};
+
+/**
  * @summary Get AI explanation for an entry
  */
 export const getGetAiExplanationUrl = (entryId: number) => {
@@ -1594,6 +1692,126 @@ export function useGetCalibrationSummary<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetCalibrationSummaryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Calculate fraud prediction precision, recall, and F1 against reviewed outcomes
+ */
+export const getGetFraudEvaluationSummaryUrl = (
+  id: number,
+  params?: GetFraudEvaluationSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/engagements/${id}/fraud-evaluation?${stringifiedParams}`
+    : `/api/engagements/${id}/fraud-evaluation`;
+};
+
+export const getFraudEvaluationSummary = async (
+  id: number,
+  params?: GetFraudEvaluationSummaryParams,
+  options?: RequestInit,
+): Promise<FraudEvaluationSummary> => {
+  return customFetch<FraudEvaluationSummary>(
+    getGetFraudEvaluationSummaryUrl(id, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetFraudEvaluationSummaryQueryKey = (
+  id: number,
+  params?: GetFraudEvaluationSummaryParams,
+) => {
+  return [
+    `/api/engagements/${id}/fraud-evaluation`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetFraudEvaluationSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFraudEvaluationSummary>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  params?: GetFraudEvaluationSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFraudEvaluationSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFraudEvaluationSummaryQueryKey(id, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFraudEvaluationSummary>>
+  > = ({ signal }) =>
+    getFraudEvaluationSummary(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFraudEvaluationSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFraudEvaluationSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFraudEvaluationSummary>>
+>;
+export type GetFraudEvaluationSummaryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Calculate fraud prediction precision, recall, and F1 against reviewed outcomes
+ */
+
+export function useGetFraudEvaluationSummary<
+  TData = Awaited<ReturnType<typeof getFraudEvaluationSummary>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  params?: GetFraudEvaluationSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFraudEvaluationSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFraudEvaluationSummaryQueryOptions(
+    id,
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

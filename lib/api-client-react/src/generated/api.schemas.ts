@@ -133,6 +133,79 @@ export interface CalibrationSummary {
   weights: CalibrationSummaryWeights;
 }
 
+/**
+ * Use null to clear the review label.
+ * @nullable
+ */
+export type JournalEntryEvaluationUpdateOutcome =
+  | (typeof JournalEntryEvaluationUpdateOutcome)[keyof typeof JournalEntryEvaluationUpdateOutcome]
+  | null;
+
+export const JournalEntryEvaluationUpdateOutcome = {
+  CONFIRMED_FRAUD: "CONFIRMED_FRAUD",
+  LEGITIMATE: "LEGITIMATE",
+  INCONCLUSIVE: "INCONCLUSIVE",
+} as const;
+
+export interface JournalEntryEvaluationUpdate {
+  /**
+   * Use null to clear the review label.
+   * @nullable
+   */
+  outcome: JournalEntryEvaluationUpdateOutcome;
+}
+
+/**
+ * @nullable
+ */
+export type JournalEntryEvaluationOutcome =
+  | (typeof JournalEntryEvaluationOutcome)[keyof typeof JournalEntryEvaluationOutcome]
+  | null;
+
+export const JournalEntryEvaluationOutcome = {
+  CONFIRMED_FRAUD: "CONFIRMED_FRAUD",
+  LEGITIMATE: "LEGITIMATE",
+  INCONCLUSIVE: "INCONCLUSIVE",
+} as const;
+
+export interface JournalEntryEvaluation {
+  entryId: number;
+  /** @nullable */
+  outcome: JournalEntryEvaluationOutcome;
+  /** @nullable */
+  reviewedBy: number | null;
+  /** @nullable */
+  reviewedAt: string | null;
+}
+
+export type FraudEvaluationSummaryThreshold =
+  (typeof FraudEvaluationSummaryThreshold)[keyof typeof FraudEvaluationSummaryThreshold];
+
+export const FraudEvaluationSummaryThreshold = {
+  MEDIUM: "MEDIUM",
+  HIGH: "HIGH",
+} as const;
+
+export interface FraudEvaluationSummary {
+  threshold: FraudEvaluationSummaryThreshold;
+  truePositive: number;
+  falsePositive: number;
+  trueNegative: number;
+  falseNegative: number;
+  /** @nullable */
+  precision: number | null;
+  /** @nullable */
+  recall: number | null;
+  /** @nullable */
+  f1: number | null;
+  evaluatedEntries: number;
+  confirmedFraudEntries: number;
+  legitimateEntries: number;
+  inconclusiveEntries: number;
+  unreviewedEntries: number;
+  unscoredEntries: number;
+}
+
 export type RiskScoreRiskLevel =
   (typeof RiskScoreRiskLevel)[keyof typeof RiskScoreRiskLevel];
 
@@ -205,9 +278,28 @@ export interface JournalEntry {
   amount: number;
   postingTime?: string;
   referenceNumber?: string;
+  /** @nullable */
+  evaluationOutcome: JournalEntryEvaluationOutcome;
+  /** @nullable */
+  evaluationReviewedBy: number | null;
+  /** @nullable */
+  evaluationReviewedAt: string | null;
   riskScore?: RiskScore;
   beneishTags?: BeneishTag[];
 }
+
+/**
+ * @nullable
+ */
+export type JournalEntryDetailEvaluationOutcome =
+  | (typeof JournalEntryDetailEvaluationOutcome)[keyof typeof JournalEntryDetailEvaluationOutcome]
+  | null;
+
+export const JournalEntryDetailEvaluationOutcome = {
+  CONFIRMED_FRAUD: "CONFIRMED_FRAUD",
+  LEGITIMATE: "LEGITIMATE",
+  INCONCLUSIVE: "INCONCLUSIVE",
+} as const;
 
 export type JournalEntryDetailRawData = { [key: string]: unknown };
 
@@ -235,6 +327,12 @@ export interface JournalEntryDetail {
   amount: number;
   postingTime?: string;
   referenceNumber?: string;
+  /** @nullable */
+  evaluationOutcome: JournalEntryDetailEvaluationOutcome;
+  /** @nullable */
+  evaluationReviewedBy: number | null;
+  /** @nullable */
+  evaluationReviewedAt: string | null;
   rawData?: JournalEntryDetailRawData;
   riskScore?: RiskScore;
   aiExplanation?: AiExplanation;
@@ -532,6 +630,18 @@ export const ListJournalEntriesRiskLevel = {
   HIGH: "HIGH",
   MEDIUM: "MEDIUM",
   LOW: "LOW",
+} as const;
+
+export type GetFraudEvaluationSummaryParams = {
+  threshold?: GetFraudEvaluationSummaryThreshold;
+};
+
+export type GetFraudEvaluationSummaryThreshold =
+  (typeof GetFraudEvaluationSummaryThreshold)[keyof typeof GetFraudEvaluationSummaryThreshold];
+
+export const GetFraudEvaluationSummaryThreshold = {
+  MEDIUM: "MEDIUM",
+  HIGH: "HIGH",
 } as const;
 
 export type ListAuditLogsParams = {

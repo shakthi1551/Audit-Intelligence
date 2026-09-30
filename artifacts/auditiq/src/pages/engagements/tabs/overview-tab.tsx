@@ -8,13 +8,16 @@ import {
   useUpdateEngagementSettings,
   useGetCalibrationSummary,
   getGetCalibrationSummaryQueryKey,
+  useGetFraudEvaluationSummary,
+  getGetFraudEvaluationSummaryQueryKey,
 } from "@workspace/api-client-react";
-import { AlertTriangle, TrendingUp, Users, Clock, FileText, Settings2, BrainCircuit, Save } from "lucide-react";
+import { AlertTriangle, TrendingUp, Users, Clock, FileText, Settings2, BrainCircuit, Save, ClipboardCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { motion } from "framer-motion";
@@ -36,6 +39,17 @@ export default function OverviewTab({ engagementId }: OverviewTabProps) {
   });
   const { data: calibration } = useGetCalibrationSummary(engagementId, {
     query: { enabled: !!engagementId, queryKey: getGetCalibrationSummaryQueryKey(engagementId) },
+  });
+  const [evaluationThreshold, setEvaluationThreshold] = useState<"MEDIUM" | "HIGH">("MEDIUM");
+  const {
+    data: fraudEvaluation,
+    isLoading: loadingFraudEvaluation,
+    isError: fraudEvaluationError,
+  } = useGetFraudEvaluationSummary(engagementId, { threshold: evaluationThreshold }, {
+    query: {
+      enabled: !!engagementId,
+      queryKey: getGetFraudEvaluationSummaryQueryKey(engagementId, { threshold: evaluationThreshold }),
+    },
   });
   const updateSettings = useUpdateEngagementSettings();
   const { toast } = useToast();
@@ -353,6 +367,77 @@ export default function OverviewTab({ engagementId }: OverviewTabProps) {
                 <Save className="h-4 w-4" /> {updateSettings.isPending ? "Saving..." : saved ? "Saved" : "Save settings"}
               </Button>
             </div>
+          </div>
+          <div className="bg-card border border-primary/25 rounded-xl p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <ClipboardCheck className="h-5 w-5 text-primary" />
+              <div>
+                <h3 className="font-bold text-foreground">Fraud evaluation</h3>
+                <p className="text-xs text-muted-foreground">Compared with auditor-reviewed outcomes</p>
+              </div>
+            </div>
+            <label className="block space-y-2 mb-4">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Prediction threshold</span>
+              <Select value={evaluationThreshold} onValueChange={(value) => setEvaluationThreshold(value as "MEDIUM" | "HIGH")}>
+                <SelectTrigger aria-label="Fraud prediction threshold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MEDIUM">MEDIUM or higher (score ≥ 40)</SelectItem>
+                  <SelectItem value="HIGH">HIGH only (score ≥ 70)</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+            {loadingFraudEvaluation ? (
+              <p className="text-sm text-muted-foreground py-4">Calculating evaluation metrics...</p>
+            ) : fraudEvaluationError ? (
+              <p className="text-sm text-destructive py-4">Could not load the fraud evaluation metrics.</p>
+            ) : fraudEvaluation ? (
+              <>
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {[
+                    { label: "Precision", value: fraudEvaluation.precision },
+                    { label: "Recall", value: fraudEvaluation.recall },
+                    { label: "F1", value: fraudEvaluation.f1 },
+                  ].map((metric) => (
+                    <div key={metric.label} className="rounded-lg bg-muted/40 p-3 text-center">
+                      <p className="text-xs text-muted-foreground">{metric.label}</p>
+                      <p className="text-lg font-bold text-foreground">
+                        {metric.value === null ? "N/A" : `${(metric.value * 100).toFixed(1)}%`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  {fraudEvaluation.evaluatedEntries} scored, labeled entries evaluated
+                </p>
+                <div className="rounded-lg border border-border overflow-hidden mb-3">
+                  <div className="grid grid-cols-3 bg-muted/50 text-xs font-semibold text-muted-foreground">
+                    <div className="p-2">Actual / Predicted</div>
+                    <div className="p-2 text-center">Fraud</div>
+                    <div className="p-2 text-center">Legitimate</div>
+                  </div>
+                  <div className="grid grid-cols-3 border-t border-border text-sm">
+                    <div className="p-2 font-medium">Fraud</div>
+                    <div className="p-2 text-center">{fraudEvaluation.truePositive} TP</div>
+                    <div className="p-2 text-center">{fraudEvaluation.falseNegative} FN</div>
+                  </div>
+                  <div className="grid grid-cols-3 border-t border-border text-sm">
+                    <div className="p-2 font-medium">Legitimate</div>
+                    <div className="p-2 text-center">{fraudEvaluation.falsePositive} FP</div>
+                    <div className="p-2 text-center">{fraudEvaluation.trueNegative} TN</div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {fraudEvaluation.confirmedFraudEntries} confirmed fraud · {fraudEvaluation.legitimateEntries} legitimate · {fraudEvaluation.inconclusiveEntries} inconclusive · {fraudEvaluation.unreviewedEntries} unreviewed · {fraudEvaluation.unscoredEntries} unscored
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed mt-2">
+                  Only confirmed fraud and legitimate outcomes are included. Inconclusive, unreviewed, and unscored entries are excluded. Predictions use the underlying risk score, not auditor-overridden categories.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground py-4">No evaluation data available.</p>
+            )}
           </div>
           <div className="bg-card border border-accent/25 rounded-xl p-5">
             <div className="flex items-center gap-3 mb-3">

@@ -5,6 +5,8 @@ import {
   useGetAiExplanation,
   useGenerateAiExplanation,
   useOverrideRiskScore,
+  useUpdateJournalEntryEvaluationOutcome,
+  getGetFraudEvaluationSummaryQueryKey,
   type ListJournalEntriesRiskLevel,
   type OverrideBodyRiskLevel,
   type OverrideBodyFeedbackCategory,
@@ -18,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertTriangle, ChevronDown, ChevronRight, Bot, Shield, Filter } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Bot, Shield, Filter, ClipboardCheck } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -304,6 +306,7 @@ function ExpandedEntryPanel({
 }) {
   const { data: explanation, isLoading: loadingExplanation } = useGetAiExplanation(entryId);
   const generateMutation = useGenerateAiExplanation();
+  const updateEvaluationOutcome = useUpdateJournalEntryEvaluationOutcome();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -326,6 +329,31 @@ function ExpandedEntryPanel({
           });
         },
       }
+    );
+  };
+
+  const handleEvaluationOutcomeChange = (value: string) => {
+    const outcome = value === "UNREVIEWED"
+      ? null
+      : value as "CONFIRMED_FRAUD" | "LEGITIMATE" | "INCONCLUSIVE";
+
+    updateEvaluationOutcome.mutate(
+      { entryId, data: { outcome } },
+      {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey(engagementId) });
+          void queryClient.invalidateQueries({ queryKey: getGetFraudEvaluationSummaryQueryKey(engagementId) });
+          toast({
+            title: outcome ? "Review outcome saved" : "Review outcome cleared",
+            description: "The fraud evaluation metrics have been refreshed.",
+          });
+        },
+        onError: (error) => toast({
+          title: "Could not save review outcome",
+          description: error.message,
+          variant: "destructive",
+        }),
+      },
     );
   };
 
@@ -431,8 +459,39 @@ function ExpandedEntryPanel({
       </div>
 
       {/* Override button */}
-      <div className="flex justify-end">
-        <OverrideDialog entryId={entryId} currentRisk={entry.riskScore} engagementId={engagementId} />
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div className="bg-card border border-primary/20 rounded-lg p-4 space-y-3 md:min-w-[360px]">
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-semibold text-foreground">Fraud evaluation outcome</h4>
+          </div>
+          <Select
+            value={entry.evaluationOutcome ?? "UNREVIEWED"}
+            onValueChange={handleEvaluationOutcomeChange}
+            disabled={updateEvaluationOutcome.isPending}
+          >
+            <SelectTrigger className="bg-input border-border" aria-label="Set auditor-reviewed fraud outcome">
+              <SelectValue placeholder="Choose a review outcome" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="UNREVIEWED">Not reviewed</SelectItem>
+              <SelectItem value="CONFIRMED_FRAUD">Confirmed fraud</SelectItem>
+              <SelectItem value="LEGITIMATE">Legitimate</SelectItem>
+              <SelectItem value="INCONCLUSIVE">Inconclusive</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Reviewer outcomes are kept separate from risk predictions. Inconclusive and not-reviewed entries are excluded from precision, recall, and F1.
+          </p>
+          {entry.evaluationReviewedAt && entry.evaluationReviewedBy != null && (
+            <p className="text-xs text-muted-foreground">
+              Reviewed by user #{entry.evaluationReviewedBy} · {format(new Date(entry.evaluationReviewedAt), "MMM d, yyyy h:mm a")}
+            </p>
+          )}
+        </div>
+        <div className="flex justify-end">
+          <OverrideDialog entryId={entryId} currentRisk={entry.riskScore} engagementId={engagementId} />
+        </div>
       </div>
     </div>
   );
