@@ -27,6 +27,9 @@ router.use("/engagements", engagementDashboardRouter);
 router.use("/entries", entriesRouter);
 // Overall dashboard: /dashboard/overview
 router.use("/dashboard", dashboardRouter);
+// Streamlit handoff exchange is intentionally unauthenticated; its one-time code is the credential.
+// Mount before the root reports router, which applies normal bearer authentication.
+router.use("/streamlit", streamlitRouter);
 // Reports: /engagements/:id/report/pdf and /excel
 router.use("/", reportsRouter);
 // Audit logs
@@ -35,6 +38,5 @@ router.use("/audit-logs", auditLogsRouter);
 router.use("/drive", driveRouter);
 // Webhook automation endpoints (for MAKE and similar tools)
 router.use("/webhooks", webhooksRouter);
-router.use("/streamlit", streamlitRouter);
 
 export default router;
