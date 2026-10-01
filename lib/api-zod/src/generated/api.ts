@@ -631,6 +631,64 @@ export const GetFraudEvaluationSummaryResponse = zod.object({
 });
 
 /**
+ * @summary Create a short-lived, single-use handoff for the Streamlit evaluation view
+ */
+export const CreateFraudEvaluationHandoffParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Exchange a one-time handoff code for a restricted evaluation session
+ */
+export const exchangeFraudEvaluationHandoffBodyCodeMin = 32;
+export const exchangeFraudEvaluationHandoffBodyCodeMax = 64;
+
+export const ExchangeFraudEvaluationHandoffBody = zod.object({
+  code: zod
+    .string()
+    .min(exchangeFraudEvaluationHandoffBodyCodeMin)
+    .max(exchangeFraudEvaluationHandoffBodyCodeMax),
+});
+
+export const ExchangeFraudEvaluationHandoffResponse = zod.object({
+  accessToken: zod.string(),
+  engagementId: zod.number(),
+  expiresAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Read fraud evaluation metrics using an engagement-scoped Streamlit session
+ */
+export const GetStreamlitFraudEvaluationSummaryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const getStreamlitFraudEvaluationSummaryQueryThresholdDefault = `MEDIUM`;
+
+export const GetStreamlitFraudEvaluationSummaryQueryParams = zod.object({
+  threshold: zod
+    .enum(["MEDIUM", "HIGH"])
+    .default(getStreamlitFraudEvaluationSummaryQueryThresholdDefault),
+});
+
+export const GetStreamlitFraudEvaluationSummaryResponse = zod.object({
+  threshold: zod.enum(["MEDIUM", "HIGH"]),
+  truePositive: zod.number(),
+  falsePositive: zod.number(),
+  trueNegative: zod.number(),
+  falseNegative: zod.number(),
+  precision: zod.number().nullable(),
+  recall: zod.number().nullable(),
+  f1: zod.number().nullable(),
+  evaluatedEntries: zod.number(),
+  confirmedFraudEntries: zod.number(),
+  legitimateEntries: zod.number(),
+  inconclusiveEntries: zod.number(),
+  unreviewedEntries: zod.number(),
+  unscoredEntries: zod.number(),
+});
+
+/**
  * @summary Get risk heatmap by user
  */
 export const GetUserHeatmapParams = zod.object({

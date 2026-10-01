@@ -12,6 +12,8 @@ export interface JwtPayload {
   role: string;
   iat: number;
   exp: number;
+  scope?: "fraud-evaluation";
+  engagementId?: number;
 }
 
 function base64UrlEncode(str: string): string {
@@ -22,13 +24,16 @@ function base64UrlDecode(str: string): string {
   return Buffer.from(str, "base64url").toString("utf8");
 }
 
-export function signJwt(payload: Omit<JwtPayload, "iat" | "exp">): string {
+export function signJwt(
+  payload: Omit<JwtPayload, "iat" | "exp">,
+  expiresInSeconds = 60 * 60 * 24 * 7,
+): string {
   const header = base64UrlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const body = base64UrlEncode(
     JSON.stringify({
       ...payload,
       iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
+      exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
     }),
   );
   const signature = createHmac("sha256", JWT_SECRET)
@@ -86,8 +91,35 @@ export function requireAuth(
   }
   const token = authHeader.slice(7);
   const payload = verifyJwt(token);
-  if (!payload) {
+  if (!payload || payload.scope) {
     res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+  req.userId = Number(payload.userId);
+  req.userRole = payload.role;
+  req.userEmail = payload.email;
+  next();
+}
+
+export function requireFraudEvaluationAuth(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const payload = verifyJwt(authHeader.slice(7));
+  const engagementId = Number(req.params.id);
+  if (
+    !payload ||
+    payload.scope !== "fraud-evaluation" ||
+    !Number.isSafeInteger(payload.engagementId) ||
+    payload.engagementId !== engagementId
+  ) {
+    res.status(401).json({ error: "Invalid or expired evaluation session" });
     return;
   }
   req.userId = Number(payload.userId);

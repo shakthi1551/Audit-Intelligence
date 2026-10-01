@@ -10,6 +10,7 @@ import reportsRouter from "./reports.js";
 import auditLogsRouter from "./audit-logs.js";
 import driveRouter from "./drive.js";
 import webhooksRouter from "./webhooks.js";
+import streamlitRouter from "./streamlit.js";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use("/audit-logs", auditLogsRouter);
 router.use("/drive", driveRouter);
 // Webhook automation endpoints (for MAKE and similar tools)
 router.use("/webhooks", webhooksRouter);
+router.use("/streamlit", streamlitRouter);
 
 export default router;

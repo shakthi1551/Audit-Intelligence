@@ -206,6 +206,25 @@ export interface FraudEvaluationSummary {
   unscoredEntries: number;
 }
 
+export interface FraudEvaluationHandoffInput {
+  /**
+   * @minLength 32
+   * @maxLength 64
+   */
+  code: string;
+}
+
+export interface FraudEvaluationHandoff {
+  code: string;
+  expiresAt: string;
+}
+
+export interface FraudEvaluationHandoffSession {
+  accessToken: string;
+  engagementId: number;
+  expiresAt: string;
+}
+
 export type RiskScoreRiskLevel =
   (typeof RiskScoreRiskLevel)[keyof typeof RiskScoreRiskLevel];
 
@@ -640,6 +659,18 @@ export type GetFraudEvaluationSummaryThreshold =
   (typeof GetFraudEvaluationSummaryThreshold)[keyof typeof GetFraudEvaluationSummaryThreshold];
 
 export const GetFraudEvaluationSummaryThreshold = {
+  MEDIUM: "MEDIUM",
+  HIGH: "HIGH",
+} as const;
+
+export type GetStreamlitFraudEvaluationSummaryParams = {
+  threshold?: GetStreamlitFraudEvaluationSummaryThreshold;
+};
+
+export type GetStreamlitFraudEvaluationSummaryThreshold =
+  (typeof GetStreamlitFraudEvaluationSummaryThreshold)[keyof typeof GetStreamlitFraudEvaluationSummaryThreshold];
+
+export const GetStreamlitFraudEvaluationSummaryThreshold = {
   MEDIUM: "MEDIUM",
   HIGH: "HIGH",
 } as const;

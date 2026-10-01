@@ -2,3 +2,4 @@
 - [Orval queryKey required](orval-querykey-required.md) — Generated useXxx hooks require `queryKey` in the query options object; use `getXxxQueryKey(params)` to provide it.
 - [Audit engagement controls](audit-engagement-controls.md) — Materiality, reconciliation, calibration, and structured AI explanations belong to the engagement workflow.
 - [Fraud evaluation metrics](fraud-evaluation-metrics.md) — Use reviewer outcomes as ground truth and raw risk scores, not auditor-overridden levels, for evaluation.
+- [Streamlit evaluation handoff](streamlit-handoff.md) — Exchange a one-time code for a narrowly scoped session; use the internal proxy for Replit development API calls.

@@ -31,8 +31,12 @@ import type {
   DuplicateGroup,
   Engagement,
   ErrorResponse,
+  FraudEvaluationHandoff,
+  FraudEvaluationHandoffInput,
+  FraudEvaluationHandoffSession,
   FraudEvaluationSummary,
   GetFraudEvaluationSummaryParams,
+  GetStreamlitFraudEvaluationSummaryParams,
   HealthStatus,
   JournalEntryDetail,
   JournalEntryEvaluation,
@@ -1808,6 +1812,310 @@ export function useGetFraudEvaluationSummary<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetFraudEvaluationSummaryQueryOptions(
+    id,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a short-lived, single-use handoff for the Streamlit evaluation view
+ */
+export const getCreateFraudEvaluationHandoffUrl = (id: number) => {
+  return `/api/engagements/${id}/fraud-evaluation/handoff`;
+};
+
+export const createFraudEvaluationHandoff = async (
+  id: number,
+  options?: RequestInit,
+): Promise<FraudEvaluationHandoff> => {
+  return customFetch<FraudEvaluationHandoff>(
+    getCreateFraudEvaluationHandoffUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getCreateFraudEvaluationHandoffMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFraudEvaluationHandoff>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createFraudEvaluationHandoff>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["createFraudEvaluationHandoff"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createFraudEvaluationHandoff>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return createFraudEvaluationHandoff(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateFraudEvaluationHandoffMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createFraudEvaluationHandoff>>
+>;
+
+export type CreateFraudEvaluationHandoffMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a short-lived, single-use handoff for the Streamlit evaluation view
+ */
+export const useCreateFraudEvaluationHandoff = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFraudEvaluationHandoff>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createFraudEvaluationHandoff>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getCreateFraudEvaluationHandoffMutationOptions(options));
+};
+
+/**
+ * @summary Exchange a one-time handoff code for a restricted evaluation session
+ */
+export const getExchangeFraudEvaluationHandoffUrl = () => {
+  return `/api/streamlit/handoff/exchange`;
+};
+
+export const exchangeFraudEvaluationHandoff = async (
+  fraudEvaluationHandoffInput: FraudEvaluationHandoffInput,
+  options?: RequestInit,
+): Promise<FraudEvaluationHandoffSession> => {
+  return customFetch<FraudEvaluationHandoffSession>(
+    getExchangeFraudEvaluationHandoffUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(fraudEvaluationHandoffInput),
+    },
+  );
+};
+
+export const getExchangeFraudEvaluationHandoffMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exchangeFraudEvaluationHandoff>>,
+    TError,
+    { data: BodyType<FraudEvaluationHandoffInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof exchangeFraudEvaluationHandoff>>,
+  TError,
+  { data: BodyType<FraudEvaluationHandoffInput> },
+  TContext
+> => {
+  const mutationKey = ["exchangeFraudEvaluationHandoff"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof exchangeFraudEvaluationHandoff>>,
+    { data: BodyType<FraudEvaluationHandoffInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return exchangeFraudEvaluationHandoff(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExchangeFraudEvaluationHandoffMutationResult = NonNullable<
+  Awaited<ReturnType<typeof exchangeFraudEvaluationHandoff>>
+>;
+export type ExchangeFraudEvaluationHandoffMutationBody =
+  BodyType<FraudEvaluationHandoffInput>;
+export type ExchangeFraudEvaluationHandoffMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Exchange a one-time handoff code for a restricted evaluation session
+ */
+export const useExchangeFraudEvaluationHandoff = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof exchangeFraudEvaluationHandoff>>,
+    TError,
+    { data: BodyType<FraudEvaluationHandoffInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof exchangeFraudEvaluationHandoff>>,
+  TError,
+  { data: BodyType<FraudEvaluationHandoffInput> },
+  TContext
+> => {
+  return useMutation(getExchangeFraudEvaluationHandoffMutationOptions(options));
+};
+
+/**
+ * @summary Read fraud evaluation metrics using an engagement-scoped Streamlit session
+ */
+export const getGetStreamlitFraudEvaluationSummaryUrl = (
+  id: number,
+  params?: GetStreamlitFraudEvaluationSummaryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/streamlit/engagements/${id}/fraud-evaluation?${stringifiedParams}`
+    : `/api/streamlit/engagements/${id}/fraud-evaluation`;
+};
+
+export const getStreamlitFraudEvaluationSummary = async (
+  id: number,
+  params?: GetStreamlitFraudEvaluationSummaryParams,
+  options?: RequestInit,
+): Promise<FraudEvaluationSummary> => {
+  return customFetch<FraudEvaluationSummary>(
+    getGetStreamlitFraudEvaluationSummaryUrl(id, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStreamlitFraudEvaluationSummaryQueryKey = (
+  id: number,
+  params?: GetStreamlitFraudEvaluationSummaryParams,
+) => {
+  return [
+    `/api/streamlit/engagements/${id}/fraud-evaluation`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetStreamlitFraudEvaluationSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStreamlitFraudEvaluationSummary>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  params?: GetStreamlitFraudEvaluationSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStreamlitFraudEvaluationSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetStreamlitFraudEvaluationSummaryQueryKey(id, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStreamlitFraudEvaluationSummary>>
+  > = ({ signal }) =>
+    getStreamlitFraudEvaluationSummary(id, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStreamlitFraudEvaluationSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStreamlitFraudEvaluationSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStreamlitFraudEvaluationSummary>>
+>;
+export type GetStreamlitFraudEvaluationSummaryQueryError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Read fraud evaluation metrics using an engagement-scoped Streamlit session
+ */
+
+export function useGetStreamlitFraudEvaluationSummary<
+  TData = Awaited<ReturnType<typeof getStreamlitFraudEvaluationSummary>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  params?: GetStreamlitFraudEvaluationSummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStreamlitFraudEvaluationSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStreamlitFraudEvaluationSummaryQueryOptions(
     id,
     params,
     options,

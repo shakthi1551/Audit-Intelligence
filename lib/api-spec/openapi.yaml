@@ -476,6 +476,93 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /engagements/{id}/fraud-evaluation/handoff:
+    post:
+      operationId: createFraudEvaluationHandoff
+      tags: [engagements]
+      summary: Create a short-lived, single-use handoff for the Streamlit evaluation view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: One-time Streamlit handoff code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FraudEvaluationHandoff"
+        "404":
+          description: Engagement not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /streamlit/handoff/exchange:
+    post:
+      operationId: exchangeFraudEvaluationHandoff
+      tags: [engagements]
+      summary: Exchange a one-time handoff code for a restricted evaluation session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FraudEvaluationHandoffInput"
+      responses:
+        "200":
+          description: Short-lived, engagement-scoped evaluation session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FraudEvaluationHandoffSession"
+        "401":
+          description: Handoff code is invalid, expired, or already used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /streamlit/engagements/{id}/fraud-evaluation:
+    get:
+      operationId: getStreamlitFraudEvaluationSummary
+      tags: [engagements]
+      summary: Read fraud evaluation metrics using an engagement-scoped Streamlit session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: threshold
+          in: query
+          schema:
+            type: string
+            enum: [MEDIUM, HIGH]
+            default: MEDIUM
+      responses:
+        "200":
+          description: Fraud prediction evaluation metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FraudEvaluationSummary"
+        "401":
+          description: Evaluation session is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Engagement not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /engagements/{id}/heatmap/users:
     get:
       operationId: getUserHeatmap
@@ -1065,6 +1152,37 @@ components:
         unscoredEntries:
           type: integer
       required: [threshold, truePositive, falsePositive, trueNegative, falseNegative, precision, recall, f1, evaluatedEntries, confirmedFraudEntries, legitimateEntries, inconclusiveEntries, unreviewedEntries, unscoredEntries]
+
+    FraudEvaluationHandoffInput:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 32
+          maxLength: 64
+      required: [code]
+
+    FraudEvaluationHandoff:
+      type: object
+      properties:
+        code:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required: [code, expiresAt]
+
+    FraudEvaluationHandoffSession:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        engagementId:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+      required: [accessToken, engagementId, expiresAt]
 
     # Journal Entry
     JournalEntry:
