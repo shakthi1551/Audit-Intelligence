@@ -1,16 +1,16 @@
-===========================================================================
-  AUDITIQ 10,000-ROW OFFLINE BENCHMARKING EVALUATION PIPELINE
-  Reference Implementation: MSO4992 Dissertation Chapter 5 & Appendix A
-===========================================================================
-  This script executes an offline empirical evaluation of the 5D Composite 
-  Hazard Risk Engine on a 10,000-entry synthetic SAP BKPF/BSEG general ledger.
-
-  Methodology:
-  - 10,000 general ledger entries (3.75% injected anomaly rate)
-  - 70/30 Chronological Temporal Split (7,000 train / 3,000 test)
-  - Evaluates Precision, Recall, F1-Score, and Confusion Matrix
-  - Compares AuditIQ against Isolation Forest & Rule-Based Baselines
-===========================================================================
+#===========================================================================
+# AUDITIQ 10,000-ROW OFFLINE BENCHMARKING EVALUATION PIPELINE
+# Reference Implementation: MSO4992 Dissertation Chapter 5 & Appendix A
+#===========================================================================
+# This script executes an offline empirical evaluation of the 5D Composite 
+# Hazard Risk Engine on a 10,000-entry synthetic SAP BKPF/BSEG general ledger.
+#
+# Methodology:
+# - 10,000 general ledger entries (3.75% injected anomaly rate)
+# - 70/30 Chronological Temporal Split (7,000 train / 3,000 test)
+# - Evaluates Precision, Recall, F1-Score, and Confusion Matrix
+# - Compares AuditIQ against Isolation Forest & Rule-Based Baselines
+#===========================================================================
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
